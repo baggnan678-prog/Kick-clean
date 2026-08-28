@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Espace Prestataire — ProxiServices</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <header class="topbar">
+    <div class="container">
+      <a href="index.html" class="logo">PROXI<span>SERVICES</span></a>
+      <nav class="main-nav">
+        <ul>
+          <li><a href="index.html">Accueil</a></li>
+          <li><a href="espace-client.html">Espace Client</a></li>
+          <li><a href="espace-prestataire.html" class="active">Espace Prestataire</a></li>
+        </ul>
+      </nav>
+      <div class="topbar-user" id="ps-user-bar"></div>
+    </div>
+  </header>
+
+  <section class="section">
+    <div class="container">
+      <h2>Besoins ouverts près de chez vous</h2>
+      <p class="lead">Consultez les demandes des clients et soumettez votre devis. Une commission de 7 à 10% est prélevée à la validation finale du client ; l'abonnement Pro permet de postuler sans commission.</p>
+
+      <div id="ps-alert-zone"></div>
+      <div id="ps-mission-list" class="mission-list"></div>
+    </div>
+  </section>
+
+  <footer class="site-footer">
+    <div class="container">
+      <p>&copy; 2026 ProxiServices.</p>
+    </div>
+  </footer>
+
+  <script src="app.js"></script>
+  <script>
+    const currentUser = requireAuth(["provider"]);
+    renderUserBar("ps-user-bar");
+
+    const alertZone = document.getElementById("ps-alert-zone");
+    function showAlert(message, type = "error") {
+      alertZone.innerHTML = `<div class="alert alert-${type}">${message}</div>`;
+    }
+
+    async function loadOpenMissions() {
+      const listEl = document.getElementById("ps-mission-list");
+      try {
+        const missions = await apiRequest("/api/missions");
+        if (missions.length === 0) {
+          listEl.innerHTML = `<p class="lead">Aucun besoin ouvert pour le moment.</p>`;
+          return;
+        }
+        listEl.innerHTML = missions.map((m) => `
+          <div class="mission-card" data-mission-id="${m.id}">
+            <span class="badge">${m.status}</span>
+            <h4>${m.title}</h4>
+            <p class="meta">${m.neighborhood} · Budget indicatif : ${m.budget_fcfa} FCFA</p>
+            <p>${m.description}</p>
+            <form class="quote-form" data-mission-id="${m.id}">
+              <input type="number" min="1" max="10000000" placeholder="Votre devis (FCFA)" required class="ps-quote-amount">
+              <input type="text" maxlength="1000" placeholder="Message (optionnel)" class="ps-quote-message">
+              <button type="submit" class="btn btn-primary">Envoyer le devis</button>
+            </form>
+          </div>
+        `).join("");
+
+        document.querySelectorAll(".quote-form").forEach((form) => {
+          form.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            alertZone.innerHTML = "";
+            const missionId = form.getAttribute("data-mission-id");
+            const amount = Number(form.querySelector(".ps-quote-amount").value);
+            const message = form.querySelector(".ps-quote-message").value;
+            try {
+              await apiRequest(`/api/missions/${missionId}/quotes`, {
+                method: "POST",
+                auth: true,
+                body: { amount_fcfa: amount, message: message || null },
+              });
+              showAlert("Votre devis a été envoyé avec succès.", "success");
+              loadOpenMissions();
+            } catch (err) {
+              showAlert(err.message);
+            }
+          });
+        });
+      } catch (err) {
+        showAlert("Impossible de charger les besoins : " + err.message);
+      }
+    }
+
+    loadOpenMissions();
+  </script>
+</body>
+</html>

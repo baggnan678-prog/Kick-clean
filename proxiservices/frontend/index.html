@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ProxiServices — Trouvez un prestataire près de chez vous</title>
+  <meta name="description" content="ProxiServices met en relation particuliers et prestataires indépendants qualifiés pour tous vos besoins de proximité.">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <header class="topbar">
+    <div class="container">
+      <a href="index.html" class="logo">PROXI<span>SERVICES</span></a>
+      <nav class="main-nav">
+        <ul>
+          <li><a href="index.html" class="active">Accueil</a></li>
+          <li><a href="espace-client.html">Espace Client</a></li>
+          <li><a href="espace-prestataire.html">Espace Prestataire</a></li>
+        </ul>
+      </nav>
+      <div class="topbar-user" id="ps-user-bar"></div>
+    </div>
+  </header>
+
+  <section class="hero">
+    <div class="container">
+      <h1>Un besoin de service ? Un prestataire de confiance, près de chez vous.</h1>
+      <p>Plomberie, électricité, informatique, cours particuliers, ménage : publiez votre besoin, recevez des devis et payez en toute sécurité, les fonds étant bloqués jusqu'à la fin de la prestation.</p>
+      <div class="hero-actions">
+        <a href="espace-client.html" class="btn btn-primary">Publier un besoin</a>
+        <a href="espace-prestataire.html" class="btn btn-outline">Devenir prestataire</a>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <h2>Nos catégories de services</h2>
+      <p class="lead">Une forte demande quotidienne, pensée pour un panier moyen élevé et un flux récurrent tout au long de l'année.</p>
+      <div class="grid-3">
+        <div class="card">
+          <h3>Dépannage &amp; Maintenance</h3>
+          <p>Plomberie, électricité, climatisation — des interventions d'urgence rapides et fiables.</p>
+        </div>
+        <div class="card">
+          <h3>Numérique &amp; Informatique</h3>
+          <p>Réparation PC/téléphone, installation réseau, développement de petits scripts.</p>
+        </div>
+        <div class="card">
+          <h3>Soutien scolaire &amp; Formations</h3>
+          <p>Cours particuliers à domicile ou en ligne, tout au long de l'année académique.</p>
+        </div>
+        <div class="card">
+          <h3>Services domestiques</h3>
+          <p>Ménage, déménagement, jardinage — un volume de transactions élevé et régulier.</p>
+        </div>
+        <div class="card">
+          <h3>Sécurité des paiements</h3>
+          <p>Séquestre automatique : les fonds ne sont libérés au prestataire qu'après validation du client.</p>
+        </div>
+        <div class="card">
+          <h3>Prestataires vérifiés</h3>
+          <p>Badge « Vérifié » pour les prestataires abonnés à l'offre Pro, gage de confiance supplémentaire.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section section-alt">
+    <div class="container">
+      <h2>Comment ProxiServices se finance</h2>
+      <p class="lead">Un modèle de monétisation hybride, sans frais fixes à vide pour les prestataires.</p>
+      <div class="grid-3">
+        <div class="card">
+          <h3>Commission sur transaction</h3>
+          <p>7% à 10% prélevés automatiquement sur chaque prestation réglée via la plateforme.</p>
+        </div>
+        <div class="card">
+          <h3>Abonnement Pro</h3>
+          <p>Badge Vérifié, priorité dans les résultats et devis illimités sans commission.</p>
+          <span class="price">2 000 FCFA / mois</span>
+        </div>
+        <div class="card">
+          <h3>Options « Boost »</h3>
+          <p>Mettez en avant une annonce ou un profil en page d'accueil pendant 48 heures.</p>
+          <span class="price">500 FCFA</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer class="site-footer">
+    <div class="container">
+      <p>&copy; 2026 ProxiServices — Plateforme de mise en relation de services de proximité.</p>
+    </div>
+  </footer>
+
+  <script src="app.js"></script>
+  <script>renderUserBar("ps-user-bar");</script>
+</body>
+</html>

@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Espace Client — ProxiServices</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <header class="topbar">
+    <div class="container">
+      <a href="index.html" class="logo">PROXI<span>SERVICES</span></a>
+      <nav class="main-nav">
+        <ul>
+          <li><a href="index.html">Accueil</a></li>
+          <li><a href="espace-client.html" class="active">Espace Client</a></li>
+          <li><a href="espace-prestataire.html">Espace Prestataire</a></li>
+        </ul>
+      </nav>
+      <div class="topbar-user" id="ps-user-bar"></div>
+    </div>
+  </header>
+
+  <section class="section">
+    <div class="container">
+      <h2>Publier un nouveau besoin</h2>
+      <p class="lead">Décrivez votre besoin, fixez votre budget et recevez des devis de prestataires de votre quartier.</p>
+
+      <div id="ps-alert-zone" style="max-width:640px;"></div>
+
+      <form id="ps-mission-form" class="mission-form">
+        <div class="field">
+          <label for="mission-category">Catégorie</label>
+          <select id="mission-category" required></select>
+        </div>
+        <div class="field">
+          <label for="mission-title">Titre</label>
+          <input type="text" id="mission-title" required minlength="5" maxlength="150">
+        </div>
+        <div class="field">
+          <label for="mission-description">Description</label>
+          <textarea id="mission-description" required minlength="10" maxlength="3000"></textarea>
+        </div>
+        <div class="field">
+          <label for="mission-budget">Budget (FCFA)</label>
+          <input type="number" id="mission-budget" required min="1" max="10000000">
+        </div>
+        <div class="field">
+          <label for="mission-neighborhood">Quartier</label>
+          <input type="text" id="mission-neighborhood" required minlength="2" maxlength="150">
+        </div>
+        <button type="submit" class="btn btn-primary btn-full">Publier le besoin</button>
+      </form>
+
+      <h2 style="margin-top:3rem;">Mes besoins publiés</h2>
+      <div id="ps-mission-list" class="mission-list"></div>
+    </div>
+  </section>
+
+  <footer class="site-footer">
+    <div class="container">
+      <p>&copy; 2026 ProxiServices.</p>
+    </div>
+  </footer>
+
+  <script src="app.js"></script>
+  <script>
+    const currentUser = requireAuth(["client"]);
+    renderUserBar("ps-user-bar");
+
+    const alertZone = document.getElementById("ps-alert-zone");
+    function showAlert(message, type = "error") {
+      alertZone.innerHTML = `<div class="alert alert-${type}">${message}</div>`;
+    }
+
+    async function loadCategories() {
+      const select = document.getElementById("mission-category");
+      try {
+        const categories = await apiRequest("/api/services/categories");
+        if (categories.length === 0) {
+          select.innerHTML = `<option value="">Aucune catégorie disponible pour le moment</option>`;
+          return;
+        }
+        select.innerHTML = categories.map((c) => `<option value="${c.id}">${c.name}</option>`).join("");
+      } catch (err) {
+        showAlert("Impossible de charger les catégories : " + err.message);
+      }
+    }
+
+    async function loadMyMissions() {
+      const listEl = document.getElementById("ps-mission-list");
+      try {
+        const missions = await apiRequest("/api/missions");
+        const mine = missions.filter((m) => m.client_id === currentUser.id);
+        if (mine.length === 0) {
+          listEl.innerHTML = `<p class="lead">Vous n'avez pas encore de besoin ouvert.</p>`;
+          return;
+        }
+        listEl.innerHTML = mine.map((m) => `
+          <div class="mission-card">
+            <span class="badge">${m.status}</span>
+            <h4>${m.title}</h4>
+            <p class="meta">${m.neighborhood} · Budget : ${m.budget_fcfa} FCFA</p>
+            <p>${m.description}</p>
+          </div>
+        `).join("");
+      } catch (err) {
+        showAlert("Impossible de charger vos besoins : " + err.message);
+      }
+    }
+
+    document.getElementById("ps-mission-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      alertZone.innerHTML = "";
+      try {
+        await apiRequest("/api/missions", {
+          method: "POST",
+          auth: true,
+          body: {
+            category_id: document.getElementById("mission-category").value,
+            title: document.getElementById("mission-title").value,
+            description: document.getElementById("mission-description").value,
+            budget_fcfa: Number(document.getElementById("mission-budget").value),
+            neighborhood: document.getElementById("mission-neighborhood").value,
+          },
+        });
+        showAlert("Votre besoin a été publié avec succès.", "success");
+        e.target.reset();
+        loadMyMissions();
+      } catch (err) {
+        showAlert(err.message);
+      }
+    });
+
+    loadCategories();
+    loadMyMissions();
+  </script>
+</body>
+</html>

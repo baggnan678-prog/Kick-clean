@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Connexion — ProxiServices</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <header class="topbar">
+    <div class="container">
+      <a href="index.html" class="logo">PROXI<span>SERVICES</span></a>
+      <nav class="main-nav">
+        <ul>
+          <li><a href="index.html">Accueil</a></li>
+          <li><a href="espace-client.html">Espace Client</a></li>
+          <li><a href="espace-prestataire.html">Espace Prestataire</a></li>
+        </ul>
+      </nav>
+      <div class="topbar-user" id="ps-user-bar"></div>
+    </div>
+  </header>
+
+  <section class="section">
+    <div class="container">
+      <h2 id="ps-form-title" style="text-align:center;">Connexion</h2>
+      <div id="ps-alert-zone" style="max-width:480px; margin:0 auto;"></div>
+
+      <form id="ps-login-form" class="auth-form">
+        <div class="field">
+          <label for="login-email">E-mail</label>
+          <input type="email" id="login-email" required>
+        </div>
+        <div class="field">
+          <label for="login-password">Mot de passe</label>
+          <input type="password" id="login-password" required minlength="8">
+        </div>
+        <button type="submit" class="btn btn-primary btn-full">Se connecter</button>
+        <p class="form-switch">Pas encore de compte ? <a href="#" id="ps-show-register">Créer un compte</a></p>
+      </form>
+
+      <form id="ps-register-form" class="auth-form" style="display:none;">
+        <div class="field">
+          <label for="reg-name">Nom complet</label>
+          <input type="text" id="reg-name" required minlength="2">
+        </div>
+        <div class="field">
+          <label for="reg-email">E-mail</label>
+          <input type="email" id="reg-email" required>
+        </div>
+        <div class="field">
+          <label for="reg-phone">Téléphone (optionnel)</label>
+          <input type="tel" id="reg-phone">
+        </div>
+        <div class="field">
+          <label for="reg-role">Je suis...</label>
+          <select id="reg-role">
+            <option value="client">Un client (je cherche un service)</option>
+            <option value="provider">Un prestataire (je propose un service)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="reg-password">Mot de passe (8 caractères minimum)</label>
+          <input type="password" id="reg-password" required minlength="8">
+        </div>
+        <button type="submit" class="btn btn-primary btn-full">Créer mon compte</button>
+        <p class="form-switch">Déjà inscrit ? <a href="#" id="ps-show-login">Se connecter</a></p>
+      </form>
+    </div>
+  </section>
+
+  <footer class="site-footer">
+    <div class="container">
+      <p>&copy; 2026 ProxiServices.</p>
+    </div>
+  </footer>
+
+  <script src="app.js"></script>
+  <script>
+    renderUserBar("ps-user-bar");
+
+    const loginForm = document.getElementById("ps-login-form");
+    const registerForm = document.getElementById("ps-register-form");
+    const title = document.getElementById("ps-form-title");
+    const alertZone = document.getElementById("ps-alert-zone");
+
+    function showAlert(message, type = "error") {
+      alertZone.innerHTML = `<div class="alert alert-${type}">${message}</div>`;
+    }
+
+    document.getElementById("ps-show-register").addEventListener("click", (e) => {
+      e.preventDefault();
+      loginForm.style.display = "none";
+      registerForm.style.display = "block";
+      title.textContent = "Créer un compte";
+      alertZone.innerHTML = "";
+    });
+
+    document.getElementById("ps-show-login").addEventListener("click", (e) => {
+      e.preventDefault();
+      registerForm.style.display = "none";
+      loginForm.style.display = "block";
+      title.textContent = "Connexion";
+      alertZone.innerHTML = "";
+    });
+
+    function redirectAfterLogin(user) {
+      window.location.href = user.role === "provider" ? "espace-prestataire.html" : "espace-client.html";
+    }
+
+    loginForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      alertZone.innerHTML = "";
+      try {
+        const tokens = await apiRequest("/api/auth/login", {
+          method: "POST",
+          body: {
+            email: document.getElementById("login-email").value,
+            password: document.getElementById("login-password").value,
+          },
+        });
+        Session.save(tokens);
+        const user = await apiRequest("/api/users/me", { auth: true });
+        Session.save(tokens, user);
+        redirectAfterLogin(user);
+      } catch (err) {
+        showAlert(err.message);
+      }
+    });
+
+    registerForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      alertZone.innerHTML = "";
+      try {
+        await apiRequest("/api/auth/register", {
+          method: "POST",
+          body: {
+            full_name: document.getElementById("reg-name").value,
+            email: document.getElementById("reg-email").value,
+            phone: document.getElementById("reg-phone").value || null,
+            role: document.getElementById("reg-role").value,
+            password: document.getElementById("reg-password").value,
+          },
+        });
+        showAlert("Compte créé avec succès. Vous pouvez vous connecter.", "success");
+        registerForm.style.display = "none";
+        loginForm.style.display = "block";
+        title.textContent = "Connexion";
+      } catch (err) {
+        showAlert(err.message);
+      }
+    });
+  </script>
+</body>
+</html>
