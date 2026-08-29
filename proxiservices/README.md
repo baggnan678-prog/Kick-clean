@@ -42,6 +42,41 @@ proxiservices/
 | Abonnement Pro / Boost | `app/models/subscription.py`, `app/models/boost.py` (modèles de données prêts ; la logique de paiement associée reste à brancher) |
 | Espaces Client / Prestataire / Admin | Routes `/api/missions`, `/api/services`, `/api/admin` + pages `frontend/espace-client.html`, `frontend/espace-prestataire.html` |
 
+## Base de données : projet Supabase dédié
+
+La base de données de production vit dans le projet Supabase **« sey »**
+(organisation « Seydou »), dans un **schema PostgreSQL dédié `proxiservices`**,
+isolé des tables `public.*` de l'application existante hébergée dans ce même
+projet. Aucune table de ProxiServices n'est dans `public.*`, et RLS est activé
+sur toutes les tables ProxiServices par défaut.
+
+Pour connecter le backend à cette base, récupérez la chaîne de connexion dans
+le dashboard Supabase (Project Settings → Database → Connection string, mode
+"Transaction pooler" recommandé) et adaptez-la au format attendu :
+
+```
+postgresql+asyncpg://postgres:<mot-de-passe>@<host>:5432/postgres
+```
+
+## Migrations de base de données (Alembic)
+
+Le schéma est versionné avec Alembic (dossier `migrations/`), pas créé
+automatiquement au démarrage de l'application. Après avoir configuré
+`DATABASE_URL` :
+
+```bash
+cd proxiservices/backend
+alembic upgrade head      # applique les migrations manquantes
+alembic revision -m "..."  # crée une nouvelle migration après avoir modifié un modèle
+```
+
+La migration initiale (`migrations/versions/0001_initial_schema.py`) a été
+testée de bout en bout (upgrade / downgrade / re-upgrade) sur un PostgreSQL 16
+local avant d'être appliquée au projet Supabase réel. Sur la base Supabase
+« sey », l'historique Alembic a été synchronisé (`alembic_version` positionné
+sur `0001_initial_schema`) sans rejouer le SQL, puisque le schéma y avait déjà
+été créé directement.
+
 ## Lancer le backend en local
 
 ```bash
@@ -49,17 +84,12 @@ cd proxiservices/backend
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env   # puis renseigner de vraies valeurs (JWT_SECRET_KEY, DATABASE_URL...)
+alembic upgrade head
 uvicorn app.main:app --reload
 ```
 
 L'API est alors disponible sur `http://localhost:8000` (documentation interactive
-sur `http://localhost:8000/docs`). Au démarrage, les tables sont créées
-automatiquement si elles n'existent pas encore (`Base.metadata.create_all` — voir
-la section « À faire » pour remplacer ceci par de vraies migrations Alembic).
-
-Une base PostgreSQL est requise (`DATABASE_URL`) : une instance gratuite
-[Supabase](https://supabase.com) ou [Neon](https://neon.tech) convient parfaitement
-pour démarrer, conformément au cahier des charges.
+sur `http://localhost:8000/docs`).
 
 ## Lancer le frontend en local
 
@@ -94,8 +124,6 @@ Cette ébauche pose les fondations techniques et de sécurité décrites dans le
 cahier des charges, mais plusieurs points restent volontairement hors périmètre
 d'un MVP scaffold :
 
-- **Migrations de base de données** : remplacer `Base.metadata.create_all` par
-  de vraies migrations Alembic versionnées.
 - **Intégration réelle de l'API Paydunia** : l'initiation de paiement (obtention
   d'une URL de paiement) n'est pas implémentée — seule la réception sécurisée du
   webhook de confirmation l'est.

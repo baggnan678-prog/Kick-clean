@@ -1,5 +1,3 @@
-from contextlib import asynccontextmanager
-
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi import _rate_limit_exceeded_handler
@@ -9,22 +7,13 @@ import app.models  # noqa: F401  (enregistre les modèles auprès de Base.metada
 from app.api.routes import admin, auth, missions, payments, services, users
 from app.core.config import get_settings
 from app.core.rate_limit import limiter
-from app.db.base import Base
-from app.db.session import engine
 
 settings = get_settings()
 
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    # MVP : création automatique des tables. À remplacer par des migrations Alembic
-    # avant la mise en production.
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-    yield
-
-
-app = FastAPI(title=settings.app_name, lifespan=lifespan)
+# Le schéma de base de données est géré par Alembic (voir migrations/), pas par
+# l'application au démarrage : exécuter `alembic upgrade head` avant de déployer
+# une nouvelle version (cf. proxiservices/README.md).
+app = FastAPI(title=settings.app_name)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 

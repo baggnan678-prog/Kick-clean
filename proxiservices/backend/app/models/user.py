@@ -15,6 +15,13 @@ class UserRole(str, enum.Enum):
     ADMIN = "admin"
 
 
+class KycStatus(str, enum.Enum):
+    UNVERIFIED = "unverified"
+    PENDING = "pending"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+
+
 class User(Base):
     __tablename__ = "users"
 
@@ -28,6 +35,10 @@ class User(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     # Badge "Vérifié" de l'abonnement Pro (cf. monétisation)
     is_verified_provider: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+
+    # Vérification d'identité (KYC) des prestataires
+    kyc_status: Mapped[KycStatus] = mapped_column(Enum(KycStatus), default=KycStatus.UNVERIFIED, nullable=False)
+    kyc_document_path: Mapped[str | None] = mapped_column(String, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(

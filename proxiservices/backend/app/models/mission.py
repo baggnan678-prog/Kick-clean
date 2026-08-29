@@ -37,6 +37,7 @@ class Mission(Base):
     longitude: Mapped[float | None] = mapped_column(Numeric(9, 6), nullable=True)
 
     status: Mapped[MissionStatus] = mapped_column(Enum(MissionStatus), default=MissionStatus.OPEN, nullable=False)
+    dispute_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
