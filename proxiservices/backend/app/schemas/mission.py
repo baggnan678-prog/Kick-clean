@@ -40,6 +40,10 @@ class DisputeResolve(BaseModel):
     admin_note: str | None = Field(default=None, max_length=1000)
 
 
+class MissionModerate(BaseModel):
+    reason: str = Field(min_length=3, max_length=500)
+
+
 class QuoteCreate(BaseModel):
     amount_fcfa: int = Field(gt=0, le=10_000_000)
     message: str | None = Field(default=None, max_length=1000)

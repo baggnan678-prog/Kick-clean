@@ -2,11 +2,12 @@ import enum
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, Enum, ForeignKey, String
+from sqlalchemy import DateTime, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func
 
 from app.db.base import Base
+from app.db.types import str_enum
 
 
 class TransactionStatus(str, enum.Enum):
@@ -31,7 +32,7 @@ class Transaction(Base):
     commission_fcfa: Mapped[int] = mapped_column(nullable=False)
 
     status: Mapped[TransactionStatus] = mapped_column(
-        Enum(TransactionStatus), default=TransactionStatus.PENDING, nullable=False
+        str_enum(TransactionStatus, name="transaction_status"), default=TransactionStatus.PENDING, nullable=False
     )
     paydunia_reference: Mapped[str | None] = mapped_column(String(150), unique=True, nullable=True)
 

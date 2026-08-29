@@ -11,10 +11,16 @@ settings = get_settings()
 # déploiement serverless (Vercel) où chaque invocation peut tourner sur un
 # nouvel event loop ; une connexion asyncpg réutilisée sur un autre event loop
 # provoque des erreurs "another operation is in progress".
+#
+# search_path=proxiservices : les CAST de type ENUM générés par SQLAlchemy
+# (ex: $1::user_role) ne sont pas qualifiés par le schéma. Sans ce réglage,
+# Postgres cherche "user_role" via le search_path par défaut ("$user, public")
+# et ne le trouve pas puisque le type vit dans le schema "proxiservices".
 engine = create_async_engine(
     settings.database_url,
     echo=settings.environment == "development",
     poolclass=NullPool,
+    connect_args={"server_settings": {"search_path": "proxiservices"}},
 )
 AsyncSessionLocal = async_sessionmaker(engine, expire_on_commit=False)
 

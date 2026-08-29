@@ -4,7 +4,7 @@ from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
 import app.models  # noqa: F401  (enregistre les modèles auprès de Base.metadata)
-from app.api.routes import admin, auth, missions, payments, services, users
+from app.api.routes import admin, auth, boosts, missions, payments, services, subscriptions, users
 from app.core.config import get_settings
 from app.core.rate_limit import limiter
 
@@ -30,6 +30,8 @@ app.include_router(users.router)
 app.include_router(services.router)
 app.include_router(missions.router)
 app.include_router(payments.router)
+app.include_router(subscriptions.router)
+app.include_router(boosts.router)
 app.include_router(admin.router)
 
 

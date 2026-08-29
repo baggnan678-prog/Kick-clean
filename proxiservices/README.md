@@ -43,6 +43,8 @@ proxiservices/
 | Espaces Client / Prestataire / Admin | Routes `/api/missions`, `/api/services`, `/api/admin` + pages `frontend/espace-client.html`, `frontend/espace-prestataire.html` |
 | Vérification d'identité (KYC) prestataire | `POST /api/users/me/kyc-document` (upload PDF/JPEG/PNG vers un bucket privé Supabase Storage) + `api/routes/admin.py` (liste des dossiers en attente, approbation → badge « Vérifié », rejet motivé) |
 | Gestion des litiges sur les transactions | `POST /api/missions/{id}/dispute` (client ou prestataire) + `POST /api/admin/disputes/{id}/resolve` (libération des fonds ou remboursement, tranché par un admin) |
+| Panneau d'administration complet | `frontend/admin.html` : litiges, KYC, modération des annonces, abonnements Pro, boosts, catégories — branché sur `/api/admin/*` |
+| Abonnement Pro / Boost — activation | `GET /api/subscriptions/me`, `POST /api/boosts` (demande) + `api/routes/admin.py` (activation manuelle après confirmation de paiement, en attendant l'intégration récurrente Paydunia) |
 
 ## KYC prestataire — Supabase Storage
 
@@ -78,6 +80,21 @@ le dashboard Supabase (Project Settings → Database → Connection string, mode
 ```
 postgresql+asyncpg://postgres:<mot-de-passe>@<host>:5432/postgres
 ```
+
+**Piège Postgres + schema dédié** : comme les tables vivent dans `proxiservices`
+et non `public`, `app/db/session.py` force `search_path=proxiservices` sur
+chaque connexion (`connect_args={"server_settings": {"search_path": "proxiservices"}}`).
+Sans ce réglage, les `CAST` de type ENUM émis par SQLAlchemy (ex: `$1::user_role`)
+échouent avec `type "user_role" does not exist`, car ils ne sont pas qualifiés
+par le schéma et Postgres résout les noms de type via le `search_path` par
+défaut. De même, chaque colonne ENUM des modèles utilise `app/db/types.py::str_enum`
+plutôt que `sqlalchemy.Enum` directement, pour persister la `.value` métier
+(`"provider"`) et non le `.name` Python (`"PROVIDER"`, comportement par défaut
+de SQLAlchemy) — sans quoi l'insertion échoue avec `invalid input value for
+enum`. Ces deux bugs ont été détectés en testant réellement l'inscription/connexion
+contre une base Postgres locale migrée via Alembic (masqués par la suite pytest
+tant que celle-ci utilisait `create_all`, auto-cohérent avec lui-même mais
+différent du schéma réellement déployé).
 
 ## Migrations de base de données (Alembic)
 
@@ -127,14 +144,25 @@ pip install -r requirements-dev.txt
 pytest -v
 ```
 
-31 tests couvrent : inscription/connexion, rejet de mauvais mot de passe,
+38 tests couvrent : inscription/connexion, rejet de mauvais mot de passe,
 rafraîchissement de jeton, limitation de débit sur la connexion, le cycle
 complet mission → devis → acceptation (séquestre) → clôture, les contrôles de
 rôle (client/prestataire/admin), la vérification de signature du webhook
 Paydunia (signature manquante, invalide, référence inconnue), le flux KYC
 (upload, contrôle de type de fichier, approbation/rejet admin), l'ouverture et
-la résolution de litiges (libération des fonds ou remboursement), et la
-visibilité de `/api/missions/mine` quel que soit le statut de la mission.
+la résolution de litiges (libération des fonds ou remboursement), la
+visibilité de `/api/missions/mine` quel que soit le statut de la mission, les
+abonnements Pro (activation/annulation admin) et les boosts (demande +
+activation admin, double-activation refusée).
+
+Le panneau `frontend/admin.html` a en plus été vérifié dans un vrai navigateur
+(Chromium piloté par Playwright) : connexion admin, création de catégorie,
+résolution d'un litige et activation d'un boost via l'interface, avec
+vérification côté API que l'état changeait réellement en base. Ce test manuel
+a révélé un bug que pytest ne pouvait pas voir : l'attribut HTML
+`pattern="[a-z0-9-]+"` du champ slug est invalide pour les navigateurs Chromium
+récents (mode Unicode "v"), ce qui bloquait silencieusement la soumission du
+formulaire — corrigé en `pattern="[a-z0-9\-]+"`.
 
 ## Lancer le frontend en local
 
@@ -173,8 +201,10 @@ d'un MVP scaffold :
   d'une URL de paiement) n'est pas implémentée — seule la réception sécurisée du
   webhook de confirmation l'est.
 - Upload de photos de profil, géolocalisation avancée (recherche par rayon),
-  notifications (SMS/e-mail), interface d'administration complète (modération,
-  gestion des abonnements/boosts).
+  notifications (SMS/e-mail).
+- **Paiement récurrent des abonnements/boosts** : l'activation Pro/Boost est
+  pour l'instant manuelle côté admin (cf. panneau d'administration) en
+  attendant l'intégration complète de l'initiation de paiement Paydunia.
 - **Sécurité en production** : configurer HTTPS (Let's Encrypt) au niveau de
   l'hébergeur, définir des secrets forts et uniques, restreindre `CORS_ALLOWED_ORIGINS`
   au(x) domaine(s) réel(s) du frontend.

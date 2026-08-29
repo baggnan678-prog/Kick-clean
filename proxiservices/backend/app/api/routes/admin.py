@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func, select
@@ -8,10 +9,14 @@ from app.api.deps import require_role
 from app.core.storage import create_signed_url
 from app.db.session import get_db
 from app.models.audit_log import AuditLog
+from app.models.boost import Boost, BoostStatus
 from app.models.mission import Mission, MissionStatus
+from app.models.subscription import ProviderSubscription, SubscriptionPlan, SubscriptionStatus
 from app.models.transaction import Transaction, TransactionStatus
 from app.models.user import KycStatus, User, UserRole
-from app.schemas.mission import DisputeResolve, MissionRead
+from app.schemas.boost import BoostRead
+from app.schemas.mission import DisputeResolve, MissionModerate, MissionRead
+from app.schemas.subscription import SubscriptionActivate, SubscriptionRead
 from app.schemas.user import KycRejectRequest, UserRead
 
 router = APIRouter(prefix="/api/admin", tags=["admin"], dependencies=[Depends(require_role(UserRole.ADMIN))])
@@ -136,3 +141,147 @@ async def reject_kyc(
     await db.commit()
     await db.refresh(target_user)
     return target_user
+
+
+@router.get("/missions", response_model=list[MissionRead])
+async def list_all_missions(db: AsyncSession = Depends(get_db)) -> list[Mission]:
+    """Vue de modération : toutes les missions, tous statuts confondus."""
+    result = await db.scalars(select(Mission).order_by(Mission.created_at.desc()))
+    return list(result)
+
+
+@router.post("/missions/{mission_id}/moderate", response_model=MissionRead)
+async def moderate_mission(
+    mission_id: uuid.UUID,
+    payload: MissionModerate,
+    current_admin: User = Depends(require_role(UserRole.ADMIN)),
+    db: AsyncSession = Depends(get_db),
+) -> Mission:
+    """Retire une annonce inappropriée (spam, contenu interdit...) en l'annulant."""
+    mission = await db.get(Mission, mission_id)
+    if mission is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Mission introuvable")
+    if mission.status in (MissionStatus.COMPLETED, MissionStatus.CANCELLED):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cette mission ne peut plus être modérée")
+
+    mission.status = MissionStatus.CANCELLED
+    db.add(
+        AuditLog(
+            actor_id=current_admin.id,
+            action="mission_moderated",
+            target_type="mission",
+            target_id=str(mission.id),
+            extra_data={"reason": payload.reason},
+        )
+    )
+    await db.commit()
+    await db.refresh(mission)
+    return mission
+
+
+@router.get("/subscriptions", response_model=list[SubscriptionRead])
+async def list_subscriptions(db: AsyncSession = Depends(get_db)) -> list[ProviderSubscription]:
+    result = await db.scalars(select(ProviderSubscription))
+    return list(result)
+
+
+@router.post("/subscriptions/{provider_id}/activate-pro", response_model=SubscriptionRead)
+async def activate_pro_subscription(
+    provider_id: uuid.UUID,
+    payload: SubscriptionActivate,
+    current_admin: User = Depends(require_role(UserRole.ADMIN)),
+    db: AsyncSession = Depends(get_db),
+) -> ProviderSubscription:
+    """Active manuellement l'abonnement Pro (en attendant l'intégration complète du
+    paiement récurrent Paydunia) après confirmation d'un paiement reçu."""
+    provider = await db.get(User, provider_id)
+    if provider is None or provider.role != UserRole.PROVIDER:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Prestataire introuvable")
+
+    subscription = await db.scalar(
+        select(ProviderSubscription).where(ProviderSubscription.provider_id == provider_id)
+    )
+    if subscription is None:
+        subscription = ProviderSubscription(provider_id=provider_id)
+        db.add(subscription)
+
+    subscription.plan = SubscriptionPlan.PRO
+    subscription.status = SubscriptionStatus.ACTIVE
+    subscription.expires_at = datetime.now(timezone.utc) + timedelta(days=payload.duration_days)
+
+    db.add(
+        AuditLog(
+            actor_id=current_admin.id,
+            action="subscription_pro_activated",
+            target_type="user",
+            target_id=str(provider_id),
+            extra_data={"duration_days": payload.duration_days},
+        )
+    )
+    await db.commit()
+    await db.refresh(subscription)
+    return subscription
+
+
+@router.post("/subscriptions/{provider_id}/cancel", response_model=SubscriptionRead)
+async def cancel_subscription(
+    provider_id: uuid.UUID,
+    current_admin: User = Depends(require_role(UserRole.ADMIN)),
+    db: AsyncSession = Depends(get_db),
+) -> ProviderSubscription:
+    subscription = await db.scalar(
+        select(ProviderSubscription).where(ProviderSubscription.provider_id == provider_id)
+    )
+    if subscription is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Abonnement introuvable")
+
+    subscription.plan = SubscriptionPlan.FREE
+    subscription.status = SubscriptionStatus.CANCELLED
+    db.add(
+        AuditLog(
+            actor_id=current_admin.id,
+            action="subscription_cancelled",
+            target_type="user",
+            target_id=str(provider_id),
+        )
+    )
+    await db.commit()
+    await db.refresh(subscription)
+    return subscription
+
+
+@router.get("/boosts", response_model=list[BoostRead])
+async def list_boosts(db: AsyncSession = Depends(get_db)) -> list[Boost]:
+    result = await db.scalars(select(Boost).order_by(Boost.id.desc()))
+    return list(result)
+
+
+@router.post("/boosts/{boost_id}/activate", response_model=BoostRead)
+async def activate_boost(
+    boost_id: uuid.UUID,
+    current_admin: User = Depends(require_role(UserRole.ADMIN)),
+    db: AsyncSession = Depends(get_db),
+) -> Boost:
+    """Active un boost (48h) après confirmation manuelle du paiement de 500 FCFA."""
+    boost = await db.get(Boost, boost_id)
+    if boost is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Boost introuvable")
+    if boost.status != BoostStatus.PENDING_PAYMENT:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Ce boost n'est pas en attente de paiement")
+
+    now = datetime.now(timezone.utc)
+    boost.status = BoostStatus.ACTIVE
+    boost.starts_at = now
+    boost.ends_at = now + timedelta(hours=48)
+
+    db.add(
+        AuditLog(
+            actor_id=current_admin.id,
+            action="boost_activated",
+            target_type="boost",
+            target_id=str(boost.id),
+        )
+    )
+    await db.commit()
+    await db.refresh(boost)
+    return boost

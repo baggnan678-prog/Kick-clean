@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Administration — ProxiServices</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    table { width: 100%; border-collapse: collapse; margin-top: 1rem; font-size: 0.9rem; }
+    th, td { text-align: left; padding: 0.5rem 0.6rem; border-bottom: 1px solid var(--color-grey-light); vertical-align: top; }
+    th { color: var(--color-grey); text-transform: uppercase; font-size: 0.72rem; letter-spacing: 0.05em; }
+    .table-wrap { overflow-x: auto; background: var(--color-white); border: 1px solid var(--color-grey-light); border-radius: var(--radius); padding: 0 0.5rem; }
+    .btn-sm { padding: 0.35rem 0.8rem; font-size: 0.8rem; border-radius: 6px; }
+    .stat-row { display: flex; gap: 1rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
+    .stat-card { background: var(--color-white); border: 1px solid var(--color-grey-light); border-radius: var(--radius); padding: 1.25rem 1.5rem; min-width: 200px; }
+    .stat-card .value { font-size: 1.6rem; font-weight: 800; color: var(--color-primary); }
+    .stat-card .label { font-size: 0.8rem; color: var(--color-grey); }
+    .admin-nav { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1.5rem; }
+    .admin-nav button { padding: 0.5rem 1rem; border: 1px solid var(--color-grey-light); background: var(--color-white); border-radius: 999px; cursor: pointer; font-size: 0.85rem; }
+    .admin-nav button.active { background: var(--color-primary); color: var(--color-white); border-color: var(--color-primary); }
+    .admin-panel { display: none; }
+    .admin-panel.active { display: block; }
+  </style>
+</head>
+<body>
+
+  <header class="topbar">
+    <div class="container">
+      <a href="index.html" class="logo">PROXI<span>SERVICES</span></a>
+      <nav class="main-nav">
+        <ul>
+          <li><a href="index.html">Accueil</a></li>
+          <li><a href="admin.html" class="active">Administration</a></li>
+        </ul>
+      </nav>
+      <div class="topbar-user" id="ps-user-bar"></div>
+    </div>
+  </header>
+
+  <section class="section">
+    <div class="container">
+      <h2>Panneau d'administration</h2>
+      <div id="ps-alert-zone" style="max-width:720px;"></div>
+
+      <div class="stat-row" id="ps-stats"></div>
+
+      <nav class="admin-nav">
+        <button data-panel="disputes" class="active">Litiges</button>
+        <button data-panel="kyc">Vérifications KYC</button>
+        <button data-panel="moderation">Modération des annonces</button>
+        <button data-panel="subscriptions">Abonnements Pro</button>
+        <button data-panel="boosts">Boosts</button>
+        <button data-panel="categories">Catégories</button>
+      </nav>
+
+      <!-- Litiges -->
+      <div class="admin-panel active" id="panel-disputes">
+        <h3>Litiges ouverts</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Mission</th><th>Motif</th><th>Statut</th><th>Action</th></tr></thead>
+            <tbody id="disputes-body"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- KYC -->
+      <div class="admin-panel" id="panel-kyc">
+        <h3>Dossiers KYC en attente</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Prestataire</th><th>E-mail</th><th>Document</th><th>Décision</th></tr></thead>
+            <tbody id="kyc-body"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Modération -->
+      <div class="admin-panel" id="panel-moderation">
+        <h3>Toutes les annonces</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Titre</th><th>Quartier</th><th>Budget</th><th>Statut</th><th>Action</th></tr></thead>
+            <tbody id="moderation-body"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Abonnements -->
+      <div class="admin-panel" id="panel-subscriptions">
+        <h3>Abonnements prestataires</h3>
+        <p class="lead">En attendant l'intégration complète du paiement récurrent Paydunia, l'activation se fait après confirmation manuelle du paiement.</p>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Prestataire (ID)</th><th>Plan</th><th>Statut</th><th>Expire le</th><th>Action</th></tr></thead>
+            <tbody id="subscriptions-body"></tbody>
+          </table>
+        </div>
+        <form id="activate-sub-form" style="margin-top:1rem; display:flex; gap:0.5rem; flex-wrap:wrap; max-width:640px;">
+          <input type="text" id="sub-provider-id" placeholder="ID du prestataire" required style="flex:1; min-width:220px; padding:0.55rem 0.7rem; border:1px solid var(--color-grey-light); border-radius:6px;">
+          <input type="number" id="sub-duration" placeholder="Durée (jours)" value="30" min="1" max="365" style="width:140px; padding:0.55rem 0.7rem; border:1px solid var(--color-grey-light); border-radius:6px;">
+          <button type="submit" class="btn btn-primary btn-sm">Activer Pro</button>
+        </form>
+      </div>
+
+      <!-- Boosts -->
+      <div class="admin-panel" id="panel-boosts">
+        <h3>Demandes de Boost</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Cible</th><th>Type</th><th>Montant</th><th>Statut</th><th>Action</th></tr></thead>
+            <tbody id="boosts-body"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Catégories -->
+      <div class="admin-panel" id="panel-categories">
+        <h3>Catégories de services</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Nom</th><th>Slug</th><th>Description</th></tr></thead>
+            <tbody id="categories-body"></tbody>
+          </table>
+        </div>
+        <form id="create-category-form" style="margin-top:1rem; display:flex; gap:0.5rem; flex-wrap:wrap; max-width:720px;">
+          <input type="text" id="cat-name" placeholder="Nom" required style="flex:1; min-width:160px; padding:0.55rem 0.7rem; border:1px solid var(--color-grey-light); border-radius:6px;">
+          <input type="text" id="cat-slug" placeholder="slug-en-minuscules" required pattern="[a-z0-9\-]+" style="flex:1; min-width:160px; padding:0.55rem 0.7rem; border:1px solid var(--color-grey-light); border-radius:6px;">
+          <input type="text" id="cat-description" placeholder="Description (optionnel)" style="flex:2; min-width:200px; padding:0.55rem 0.7rem; border:1px solid var(--color-grey-light); border-radius:6px;">
+          <button type="submit" class="btn btn-primary btn-sm">Ajouter</button>
+        </form>
+      </div>
+
+    </div>
+  </section>
+
+  <footer class="site-footer">
+    <div class="container">
+      <p>&copy; 2026 ProxiServices — Administration.</p>
+    </div>
+  </footer>
+
+  <script src="app.js"></script>
+  <script>
+    requireAuth(["admin"]);
+    renderUserBar("ps-user-bar");
+
+    const alertZone = document.getElementById("ps-alert-zone");
+    function showAlert(message, type = "error") {
+      alertZone.innerHTML = `<div class="alert alert-${type}">${message}</div>`;
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+
+    document.querySelectorAll(".admin-nav button").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".admin-nav button").forEach((b) => b.classList.remove("active"));
+        document.querySelectorAll(".admin-panel").forEach((p) => p.classList.remove("active"));
+        btn.classList.add("active");
+        document.getElementById(`panel-${btn.dataset.panel}`).classList.add("active");
+      });
+    });
+
+    async function loadStats() {
+      try {
+        const stats = await apiRequest("/api/admin/stats", { auth: true });
+        document.getElementById("ps-stats").innerHTML = `
+          <div class="stat-card"><div class="value">${stats.commission_totale_fcfa} FCFA</div><div class="label">Commission totale encaissée</div></div>
+          <div class="stat-card"><div class="value">${stats.missions_totales}</div><div class="label">Missions publiées</div></div>
+        `;
+      } catch (err) {
+        showAlert("Impossible de charger les statistiques : " + err.message);
+      }
+    }
+
+    async function loadDisputes() {
+      const body = document.getElementById("disputes-body");
+      try {
+        const disputes = await apiRequest("/api/admin/disputes", { auth: true });
+        if (disputes.length === 0) {
+          body.innerHTML = `<tr><td colspan="4">Aucun litige ouvert.</td></tr>`;
+          return;
+        }
+        body.innerHTML = disputes.map((m) => `
+          <tr>
+            <td>${m.title}<br><span style="color:var(--color-grey);font-size:0.78rem;">${m.id}</span></td>
+            <td>${m.dispute_reason || ""}</td>
+            <td>${m.status}</td>
+            <td>
+              <button class="btn btn-primary btn-sm ps-resolve-btn" data-mission-id="${m.id}" data-resolution="release">Libérer au prestataire</button>
+              <button class="btn btn-outline btn-sm ps-resolve-btn" data-mission-id="${m.id}" data-resolution="refund">Rembourser le client</button>
+            </td>
+          </tr>
+        `).join("");
+
+        document.querySelectorAll(".ps-resolve-btn").forEach((btn) => {
+          btn.addEventListener("click", async () => {
+            try {
+              await apiRequest(`/api/admin/disputes/${btn.dataset.missionId}/resolve`, {
+                method: "POST", auth: true, body: { resolution: btn.dataset.resolution },
+              });
+              showAlert("Litige résolu.", "success");
+              loadDisputes();
+              loadStats();
+            } catch (err) {
+              showAlert(err.message);
+            }
+          });
+        });
+      } catch (err) {
+        showAlert("Impossible de charger les litiges : " + err.message);
+      }
+    }
+
+    async function loadKyc() {
+      const body = document.getElementById("kyc-body");
+      try {
+        const pending = await apiRequest("/api/admin/kyc/pending", { auth: true });
+        if (pending.length === 0) {
+          body.innerHTML = `<tr><td colspan="4">Aucun dossier en attente.</td></tr>`;
+          return;
+        }
+        body.innerHTML = pending.map((u) => `
+          <tr>
+            <td>${u.full_name}<br><span style="color:var(--color-grey);font-size:0.78rem;">${u.id}</span></td>
+            <td>${u.email}</td>
+            <td><button class="btn btn-outline btn-sm ps-view-doc-btn" data-user-id="${u.id}">Voir le document</button></td>
+            <td>
+              <button class="btn btn-primary btn-sm ps-kyc-decision-btn" data-user-id="${u.id}" data-decision="approve">Approuver</button>
+              <button class="btn btn-outline btn-sm ps-kyc-decision-btn" data-user-id="${u.id}" data-decision="reject">Rejeter</button>
+            </td>
+          </tr>
+        `).join("");
+
+        document.querySelectorAll(".ps-view-doc-btn").forEach((btn) => {
+          btn.addEventListener("click", async () => {
+            try {
+              const { url } = await apiRequest(`/api/admin/kyc/${btn.dataset.userId}/document-url`, { auth: true });
+              window.open(url, "_blank", "noopener");
+            } catch (err) {
+              showAlert(err.message);
+            }
+          });
+        });
+
+        document.querySelectorAll(".ps-kyc-decision-btn").forEach((btn) => {
+          btn.addEventListener("click", async () => {
+            try {
+              if (btn.dataset.decision === "approve") {
+                await apiRequest(`/api/admin/kyc/${btn.dataset.userId}/approve`, { method: "POST", auth: true });
+              } else {
+                const reason = prompt("Motif du rejet :");
+                if (!reason) return;
+                await apiRequest(`/api/admin/kyc/${btn.dataset.userId}/reject`, {
+                  method: "POST", auth: true, body: { reason },
+                });
+              }
+              showAlert("Décision enregistrée.", "success");
+              loadKyc();
+            } catch (err) {
+              showAlert(err.message);
+            }
+          });
+        });
+      } catch (err) {
+        showAlert("Impossible de charger les dossiers KYC : " + err.message);
+      }
+    }
+
+    async function loadModeration() {
+      const body = document.getElementById("moderation-body");
+      try {
+        const missions = await apiRequest("/api/admin/missions", { auth: true });
+        if (missions.length === 0) {
+          body.innerHTML = `<tr><td colspan="5">Aucune annonce publiée.</td></tr>`;
+          return;
+        }
+        body.innerHTML = missions.map((m) => `
+          <tr>
+            <td>${m.title}</td>
+            <td>${m.neighborhood}</td>
+            <td>${m.budget_fcfa} FCFA</td>
+            <td>${m.status}</td>
+            <td>${(m.status !== "completed" && m.status !== "cancelled") ? `<button class="btn btn-outline btn-sm ps-moderate-btn" data-mission-id="${m.id}" style="border-color:var(--color-danger); color:var(--color-danger);">Retirer</button>` : ""}</td>
+          </tr>
+        `).join("");
+
+        document.querySelectorAll(".ps-moderate-btn").forEach((btn) => {
+          btn.addEventListener("click", async () => {
+            const reason = prompt("Motif du retrait de cette annonce :");
+            if (!reason) return;
+            try {
+              await apiRequest(`/api/admin/missions/${btn.dataset.missionId}/moderate`, {
+                method: "POST", auth: true, body: { reason },
+              });
+              showAlert("Annonce retirée.", "success");
+              loadModeration();
+            } catch (err) {
+              showAlert(err.message);
+            }
+          });
+        });
+      } catch (err) {
+        showAlert("Impossible de charger les annonces : " + err.message);
+      }
+    }
+
+    async function loadSubscriptions() {
+      const body = document.getElementById("subscriptions-body");
+      try {
+        const subs = await apiRequest("/api/admin/subscriptions", { auth: true });
+        if (subs.length === 0) {
+          body.innerHTML = `<tr><td colspan="5">Aucun abonnement enregistré.</td></tr>`;
+          return;
+        }
+        body.innerHTML = subs.map((s) => `
+          <tr>
+            <td>${s.provider_id}</td>
+            <td>${s.plan}</td>
+            <td>${s.status}</td>
+            <td>${s.expires_at ? new Date(s.expires_at).toLocaleDateString("fr-FR") : "—"}</td>
+            <td>${s.plan === "pro" ? `<button class="btn btn-outline btn-sm ps-cancel-sub-btn" data-provider-id="${s.provider_id}">Annuler</button>` : ""}</td>
+          </tr>
+        `).join("");
+
+        document.querySelectorAll(".ps-cancel-sub-btn").forEach((btn) => {
+          btn.addEventListener("click", async () => {
+            try {
+              await apiRequest(`/api/admin/subscriptions/${btn.dataset.providerId}/cancel`, { method: "POST", auth: true });
+              showAlert("Abonnement annulé.", "success");
+              loadSubscriptions();
+            } catch (err) {
+              showAlert(err.message);
+            }
+          });
+        });
+      } catch (err) {
+        showAlert("Impossible de charger les abonnements : " + err.message);
+      }
+    }
+
+    document.getElementById("activate-sub-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const providerId = document.getElementById("sub-provider-id").value.trim();
+      const duration = Number(document.getElementById("sub-duration").value);
+      try {
+        await apiRequest(`/api/admin/subscriptions/${providerId}/activate-pro`, {
+          method: "POST", auth: true, body: { duration_days: duration },
+        });
+        showAlert("Abonnement Pro activé.", "success");
+        e.target.reset();
+        document.getElementById("sub-duration").value = 30;
+        loadSubscriptions();
+      } catch (err) {
+        showAlert(err.message);
+      }
+    });
+
+    async function loadBoosts() {
+      const body = document.getElementById("boosts-body");
+      try {
+        const boosts = await apiRequest("/api/admin/boosts", { auth: true });
+        if (boosts.length === 0) {
+          body.innerHTML = `<tr><td colspan="5">Aucune demande de boost.</td></tr>`;
+          return;
+        }
+        body.innerHTML = boosts.map((b) => `
+          <tr>
+            <td>${b.target_id}</td>
+            <td>${b.target_type}</td>
+            <td>${b.amount_fcfa} FCFA</td>
+            <td>${b.status}</td>
+            <td>${b.status === "pending_payment" ? `<button class="btn btn-primary btn-sm ps-activate-boost-btn" data-boost-id="${b.id}">Activer</button>` : ""}</td>
+          </tr>
+        `).join("");
+
+        document.querySelectorAll(".ps-activate-boost-btn").forEach((btn) => {
+          btn.addEventListener("click", async () => {
+            try {
+              await apiRequest(`/api/admin/boosts/${btn.dataset.boostId}/activate`, { method: "POST", auth: true });
+              showAlert("Boost activé pour 48h.", "success");
+              loadBoosts();
+            } catch (err) {
+              showAlert(err.message);
+            }
+          });
+        });
+      } catch (err) {
+        showAlert("Impossible de charger les boosts : " + err.message);
+      }
+    }
+
+    async function loadCategories() {
+      const body = document.getElementById("categories-body");
+      try {
+        const categories = await apiRequest("/api/services/categories");
+        body.innerHTML = categories.length === 0
+          ? `<tr><td colspan="3">Aucune catégorie créée.</td></tr>`
+          : categories.map((c) => `<tr><td>${c.name}</td><td>${c.slug}</td><td>${c.description || ""}</td></tr>`).join("");
+      } catch (err) {
+        showAlert("Impossible de charger les catégories : " + err.message);
+      }
+    }
+
+    document.getElementById("create-category-form").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      try {
+        await apiRequest("/api/services/categories", {
+          method: "POST",
+          auth: true,
+          body: {
+            name: document.getElementById("cat-name").value,
+            slug: document.getElementById("cat-slug").value,
+            description: document.getElementById("cat-description").value || null,
+          },
+        });
+        showAlert("Catégorie ajoutée.", "success");
+        e.target.reset();
+        loadCategories();
+      } catch (err) {
+        showAlert(err.message);
+      }
+    });
+
+    loadStats();
+    loadDisputes();
+    loadKyc();
+    loadModeration();
+    loadSubscriptions();
+    loadBoosts();
+    loadCategories();
+  </script>
+</body>
+</html>

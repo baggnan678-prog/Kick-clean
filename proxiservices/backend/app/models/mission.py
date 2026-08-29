@@ -2,11 +2,12 @@ import enum
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, Enum, ForeignKey, Numeric, String, Text
+from sqlalchemy import DateTime, ForeignKey, Numeric, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.sql import func
 
 from app.db.base import Base
+from app.db.types import str_enum
 
 
 class MissionStatus(str, enum.Enum):
@@ -36,7 +37,9 @@ class Mission(Base):
     latitude: Mapped[float | None] = mapped_column(Numeric(9, 6), nullable=True)
     longitude: Mapped[float | None] = mapped_column(Numeric(9, 6), nullable=True)
 
-    status: Mapped[MissionStatus] = mapped_column(Enum(MissionStatus), default=MissionStatus.OPEN, nullable=False)
+    status: Mapped[MissionStatus] = mapped_column(
+        str_enum(MissionStatus, name="mission_status"), default=MissionStatus.OPEN, nullable=False
+    )
     dispute_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
@@ -61,6 +64,8 @@ class Quote(Base):
     provider_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), nullable=False)
     amount_fcfa: Mapped[int] = mapped_column(nullable=False)
     message: Mapped[str | None] = mapped_column(Text, nullable=True)
-    status: Mapped[QuoteStatus] = mapped_column(Enum(QuoteStatus), default=QuoteStatus.PENDING, nullable=False)
+    status: Mapped[QuoteStatus] = mapped_column(
+        str_enum(QuoteStatus, name="quote_status"), default=QuoteStatus.PENDING, nullable=False
+    )
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
