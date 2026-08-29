@@ -91,6 +91,27 @@ uvicorn app.main:app --reload
 L'API est alors disponible sur `http://localhost:8000` (documentation interactive
 sur `http://localhost:8000/docs`).
 
+## Lancer les tests
+
+La suite pytest tourne contre un vrai PostgreSQL (pas de sqlite : le schéma
+dédié et les types ENUM sont spécifiques à Postgres). En local :
+
+```bash
+cd proxiservices/backend
+pip install -r requirements-dev.txt
+# Un PostgreSQL local est nécessaire, par exemple :
+#   sudo service postgresql start
+#   sudo -u postgres psql -c "ALTER USER postgres PASSWORD 'test';"
+#   sudo -u postgres psql -c "CREATE DATABASE proxiservices_test;"
+pytest -v
+```
+
+16 tests couvrent : inscription/connexion, rejet de mauvais mot de passe,
+rafraîchissement de jeton, limitation de débit sur la connexion, le cycle
+complet mission → devis → acceptation (séquestre) → clôture, les contrôles de
+rôle (client/prestataire/admin), et la vérification de signature du webhook
+Paydunia (signature manquante, invalide, référence inconnue).
+
 ## Lancer le frontend en local
 
 Le frontend est 100% statique (aucun build nécessaire). Servez le dossier avec
@@ -127,9 +148,6 @@ d'un MVP scaffold :
 - **Intégration réelle de l'API Paydunia** : l'initiation de paiement (obtention
   d'une URL de paiement) n'est pas implémentée — seule la réception sécurisée du
   webhook de confirmation l'est.
-- **Tests automatisés** : aucun test unitaire/intégration n'est fourni pour
-  l'instant (un scénario de bout en bout a été vérifié manuellement pendant le
-  développement).
 - **Gestion des litiges** : le statut `disputed` existe dans le modèle de données,
   mais le flux de médiation (côté admin) reste à construire.
 - **Vérification d'identité des prestataires (KYC)**, upload de photos de profil,
