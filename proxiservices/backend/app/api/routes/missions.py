@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_user, require_role
 from app.core.config import get_settings
+from app.core.notifications import notification_service
 from app.db.session import get_db
 from app.models.audit_log import AuditLog
 from app.models.mission import Mission, MissionStatus, Quote, QuoteStatus
@@ -77,6 +78,14 @@ async def submit_quote(
     mission.status = MissionStatus.QUOTED
     await db.commit()
     await db.refresh(quote)
+
+    client = await db.get(User, mission.client_id)
+    if client is not None:
+        await notification_service.notify_user(
+            client,
+            subject="Nouveau devis reçu",
+            body=f"Un prestataire a soumis un devis de {quote.amount_fcfa} FCFA pour « {mission.title} ».",
+        )
     return quote
 
 
@@ -122,6 +131,14 @@ async def accept_quote(
 
     await db.commit()
     await db.refresh(mission)
+
+    provider = await db.get(User, quote.provider_id)
+    if provider is not None:
+        await notification_service.notify_user(
+            provider,
+            subject="Votre devis a été accepté",
+            body=f"Votre devis pour « {mission.title} » a été accepté. Les fonds sont bloqués en séquestre.",
+        )
     return mission
 
 
@@ -154,6 +171,15 @@ async def complete_mission(
 
     await db.commit()
     await db.refresh(mission)
+
+    if mission.provider_id is not None:
+        provider = await db.get(User, mission.provider_id)
+        if provider is not None:
+            await notification_service.notify_user(
+                provider,
+                subject="Mission clôturée, fonds libérés",
+                body=f"Le client a validé la fin de la mission « {mission.title} ». Les fonds vous ont été libérés.",
+            )
     return mission
 
 
@@ -190,4 +216,12 @@ async def open_dispute(
 
     await db.commit()
     await db.refresh(mission)
+
+    admins = await db.scalars(select(User).where(User.role == UserRole.ADMIN))
+    for admin in admins:
+        await notification_service.notify_user(
+            admin,
+            subject="Nouveau litige à examiner",
+            body=f"Un litige a été ouvert sur la mission « {mission.title} » : {payload.reason}",
+        )
     return mission

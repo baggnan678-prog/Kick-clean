@@ -6,6 +6,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import require_role
+from app.core.notifications import notification_service
 from app.core.storage import create_signed_url
 from app.db.session import get_db
 from app.models.audit_log import AuditLog
@@ -63,6 +64,18 @@ async def resolve_dispute(
 
     await db.commit()
     await db.refresh(mission)
+
+    resolution_label = "les fonds ont été libérés au prestataire" if payload.resolution == "release" else "le client a été remboursé"
+    for party_id in (mission.client_id, mission.provider_id):
+        if party_id is None:
+            continue
+        party = await db.get(User, party_id)
+        if party is not None:
+            await notification_service.notify_user(
+                party,
+                subject="Litige résolu",
+                body=f"Le litige sur « {mission.title} » a été tranché : {resolution_label}.",
+            )
     return mission
 
 
@@ -113,6 +126,12 @@ async def approve_kyc(
     )
     await db.commit()
     await db.refresh(target_user)
+
+    await notification_service.notify_user(
+        target_user,
+        subject="Identité vérifiée",
+        body="Votre pièce d'identité a été validée : le badge « Vérifié » est désormais actif sur votre profil.",
+    )
     return target_user
 
 
@@ -140,6 +159,12 @@ async def reject_kyc(
     )
     await db.commit()
     await db.refresh(target_user)
+
+    await notification_service.notify_user(
+        target_user,
+        subject="Document KYC refusé",
+        body=f"Votre pièce d'identité a été refusée : {payload.reason}. Merci d'en soumettre une nouvelle.",
+    )
     return target_user
 
 
@@ -220,6 +245,12 @@ async def activate_pro_subscription(
     )
     await db.commit()
     await db.refresh(subscription)
+
+    await notification_service.notify_user(
+        provider,
+        subject="Abonnement Pro activé",
+        body=f"Votre abonnement Pro est actif pour {payload.duration_days} jours : badge « Vérifié », priorité de recherche et devis illimités.",
+    )
     return subscription
 
 
@@ -284,4 +315,12 @@ async def activate_boost(
     )
     await db.commit()
     await db.refresh(boost)
+
+    owner = await db.get(User, boost.owner_id)
+    if owner is not None:
+        await notification_service.notify_user(
+            owner,
+            subject="Boost activé",
+            body="Votre mise en avant de 48h est désormais active.",
+        )
     return boost

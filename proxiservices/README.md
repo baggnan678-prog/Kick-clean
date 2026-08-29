@@ -45,6 +45,7 @@ proxiservices/
 | Gestion des litiges sur les transactions | `POST /api/missions/{id}/dispute` (client ou prestataire) + `POST /api/admin/disputes/{id}/resolve` (libération des fonds ou remboursement, tranché par un admin) |
 | Panneau d'administration complet | `frontend/admin.html` : litiges, KYC, modération des annonces, abonnements Pro, boosts, catégories — branché sur `/api/admin/*` |
 | Abonnement Pro / Boost — activation | `GET /api/subscriptions/me`, `POST /api/boosts` (demande) + `api/routes/admin.py` (activation manuelle après confirmation de paiement, en attendant l'intégration récurrente Paydunia) |
+| Notifications (SMS/e-mail) | `app/core/notifications.py` — abstraction branchée sur les événements clés (devis reçu/accepté, mission clôturée, litige ouvert/résolu, KYC approuvé/rejeté, abonnement/boost activé) |
 
 ## KYC prestataire — Supabase Storage
 
@@ -64,6 +65,22 @@ transmise au frontend :
 
 Variables d'environnement requises : `SUPABASE_URL` et
 `SUPABASE_SERVICE_ROLE_KEY` (Project Settings → API → service_role secret).
+
+## Notifications (SMS / e-mail)
+
+`app/core/notifications.py` fournit une abstraction `NotificationService`
+branchée sur les événements métier suivants : devis reçu (→ client), devis
+accepté (→ prestataire), mission clôturée (→ prestataire), litige ouvert
+(→ tous les admins), litige résolu (→ client et prestataire), document KYC
+approuvé/rejeté (→ prestataire), abonnement Pro activé (→ prestataire), boost
+activé (→ propriétaire).
+
+Aucun fournisseur SMS/e-mail n'étant connecté, le backend par défaut se
+contente de journaliser chaque notification (`logger.info`). Pour brancher un
+vrai fournisseur une fois les clés API disponibles (Twilio pour le SMS, une
+API d'e-mail transactionnel pour l'e-mail), il suffit de remplacer le corps de
+`send_email` / `send_sms` — aucun des points d'appel dans le reste de
+l'application n'a besoin de changer.
 
 ## Base de données : projet Supabase dédié
 
@@ -144,7 +161,7 @@ pip install -r requirements-dev.txt
 pytest -v
 ```
 
-38 tests couvrent : inscription/connexion, rejet de mauvais mot de passe,
+46 tests couvrent : inscription/connexion, rejet de mauvais mot de passe,
 rafraîchissement de jeton, limitation de débit sur la connexion, le cycle
 complet mission → devis → acceptation (séquestre) → clôture, les contrôles de
 rôle (client/prestataire/admin), la vérification de signature du webhook
@@ -152,8 +169,9 @@ Paydunia (signature manquante, invalide, référence inconnue), le flux KYC
 (upload, contrôle de type de fichier, approbation/rejet admin), l'ouverture et
 la résolution de litiges (libération des fonds ou remboursement), la
 visibilité de `/api/missions/mine` quel que soit le statut de la mission, les
-abonnements Pro (activation/annulation admin) et les boosts (demande +
-activation admin, double-activation refusée).
+abonnements Pro (activation/annulation admin), les boosts (demande +
+activation admin, double-activation refusée), et le déclenchement des
+notifications aux bons destinataires à chaque événement métier.
 
 Le panneau `frontend/admin.html` a en plus été vérifié dans un vrai navigateur
 (Chromium piloté par Playwright) : connexion admin, création de catégorie,
