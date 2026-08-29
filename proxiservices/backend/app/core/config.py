@@ -20,6 +20,11 @@ class Settings(BaseSettings):
 
     paydunia_api_key: str = ""
     paydunia_webhook_secret: str = "change-me"
+    # À vérifier/ajuster dans la documentation du compte marchand Paydunia une fois
+    # celui-ci créé : url de base et chemin exacts de l'API d'initiation de paiement.
+    paydunia_base_url: str = "https://api.paydunia.com"
+    paydunia_webhook_url: str = ""
+    paydunia_return_url: str = ""
 
     # Commission prélevée sur chaque transaction en séquestre (7% à 10% selon le cahier des charges)
     commission_rate: float = 0.08

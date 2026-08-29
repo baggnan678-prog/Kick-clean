@@ -14,3 +14,7 @@ class TransactionRead(BaseModel):
     commission_fcfa: int
     status: TransactionStatus
     paydunia_reference: str | None
+
+
+class PaymentInitiateResponse(BaseModel):
+    payment_url: str

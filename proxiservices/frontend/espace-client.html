@@ -110,12 +110,28 @@
             ${m.dispute_reason ? `<p class="meta">Motif du litige : ${m.dispute_reason}</p>` : ""}
             ${(m.status === "accepted" || m.status === "in_progress") ? `
               <div class="hero-actions" style="justify-content:flex-start; margin-top:0.75rem;">
-                <button class="btn btn-primary ps-complete-btn" data-mission-id="${m.id}" style="padding:0.5rem 1rem;">Marquer terminé</button>
+                <button class="btn btn-primary ps-pay-btn" data-mission-id="${m.id}" style="padding:0.5rem 1rem;">Payer maintenant</button>
+                <button class="btn btn-outline ps-complete-btn" data-mission-id="${m.id}" style="padding:0.5rem 1rem;">Marquer terminé</button>
                 <button class="btn btn-outline ps-dispute-btn" data-mission-id="${m.id}" style="padding:0.5rem 1rem; border-color:var(--color-danger); color:var(--color-danger);">Signaler un litige</button>
               </div>
             ` : ""}
           </div>
         `).join("");
+
+        document.querySelectorAll(".ps-pay-btn").forEach((btn) => {
+          btn.addEventListener("click", async () => {
+            alertZone.innerHTML = "";
+            try {
+              const { payment_url } = await apiRequest(
+                `/api/payments/missions/${btn.dataset.missionId}/initiate`,
+                { method: "POST", auth: true }
+              );
+              window.location.href = payment_url;
+            } catch (err) {
+              showAlert("Paiement indisponible : " + err.message);
+            }
+          });
+        });
 
         document.querySelectorAll(".ps-complete-btn").forEach((btn) => {
           btn.addEventListener("click", async () => {

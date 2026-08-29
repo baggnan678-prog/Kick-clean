@@ -46,6 +46,7 @@ proxiservices/
 | Panneau d'administration complet | `frontend/admin.html` : litiges, KYC, modération des annonces, abonnements Pro, boosts, catégories — branché sur `/api/admin/*` |
 | Abonnement Pro / Boost — activation | `GET /api/subscriptions/me`, `POST /api/boosts` (demande) + `api/routes/admin.py` (activation manuelle après confirmation de paiement, en attendant l'intégration récurrente Paydunia) |
 | Notifications (SMS/e-mail) | `app/core/notifications.py` — abstraction branchée sur les événements clés (devis reçu/accepté, mission clôturée, litige ouvert/résolu, KYC approuvé/rejeté, abonnement/boost activé) |
+| Initiation du paiement Paydunia | `POST /api/payments/missions/{id}/initiate` (`app/core/paydunia.py`) — le client obtient une URL de paiement ; les fonds ne passent en séquestre qu'à réception du webhook de confirmation (voir avertissement ci-dessous) |
 
 ## KYC prestataire — Supabase Storage
 
@@ -81,6 +82,31 @@ vrai fournisseur une fois les clés API disponibles (Twilio pour le SMS, une
 API d'e-mail transactionnel pour l'e-mail), il suffit de remplacer le corps de
 `send_email` / `send_sms` — aucun des points d'appel dans le reste de
 l'application n'a besoin de changer.
+
+## Paiement Paydunia
+
+`app/core/paydunia.py` implémente l'initiation de paiement :
+`POST /api/payments/missions/{mission_id}/initiate` (client, sur une mission
+acceptée) appelle l'API Paydunia et retourne une `payment_url` vers laquelle
+le frontend redirige le client. Les fonds ne passent en séquestre
+(`HELD_IN_ESCROW`) qu'à réception du webhook de confirmation signé
+(`POST /api/payments/webhook/paydunia`, déjà vérifié cryptographiquement —
+voir plus haut), jamais avant.
+
+**⚠️ Avertissement important** : n'ayant pas accès à un compte marchand
+Paydunia ni à sa documentation officielle, le chemin d'API
+(`{PAYDUNIA_BASE_URL}/v1/payments`), les noms de champs de la requête
+(`amount`, `reference`, `notify_url`...) et ceux attendus dans la réponse
+(`payment_url`, `reference`) suivent les conventions habituelles des
+agrégateurs Mobile Money mais **n'ont pas pu être vérifiés contre la vraie
+API**. Avant la mise en production, ajuster `_build_request_payload` et
+`_extract_payment_url` dans `app/core/paydunia.py` d'après la documentation
+réelle fournie par Paydunia à la création du compte marchand, puis renseigner
+`PAYDUNIA_API_KEY`, `PAYDUNIA_BASE_URL`, `PAYDUNIA_WEBHOOK_URL` et
+`PAYDUNIA_RETURN_URL`. Les tests (`tests/test_payment_initiation.py`) simulent
+la réponse de l'API (`monkeypatch`) : ils valident le câblage interne (contrôle
+de rôle, garde-fous, mise à jour de la transaction, réception du webhook), pas
+la conformité avec l'API réelle de Paydunia.
 
 ## Base de données : projet Supabase dédié
 
@@ -161,7 +187,7 @@ pip install -r requirements-dev.txt
 pytest -v
 ```
 
-46 tests couvrent : inscription/connexion, rejet de mauvais mot de passe,
+51 tests couvrent : inscription/connexion, rejet de mauvais mot de passe,
 rafraîchissement de jeton, limitation de débit sur la connexion, le cycle
 complet mission → devis → acceptation (séquestre) → clôture, les contrôles de
 rôle (client/prestataire/admin), la vérification de signature du webhook
@@ -170,8 +196,10 @@ Paydunia (signature manquante, invalide, référence inconnue), le flux KYC
 la résolution de litiges (libération des fonds ou remboursement), la
 visibilité de `/api/missions/mine` quel que soit le statut de la mission, les
 abonnements Pro (activation/annulation admin), les boosts (demande +
-activation admin, double-activation refusée), et le déclenchement des
-notifications aux bons destinataires à chaque événement métier.
+activation admin, double-activation refusée), le déclenchement des
+notifications aux bons destinataires à chaque événement métier, et
+l'initiation de paiement Paydunia (contrôle de rôle, garde-fou sans clé API
+configurée, mise à jour de la transaction, réception du webhook).
 
 Le panneau `frontend/admin.html` a en plus été vérifié dans un vrai navigateur
 (Chromium piloté par Playwright) : connexion admin, création de catégorie,
@@ -215,14 +243,14 @@ Cette ébauche pose les fondations techniques et de sécurité décrites dans le
 cahier des charges, mais plusieurs points restent volontairement hors périmètre
 d'un MVP scaffold :
 
-- **Intégration réelle de l'API Paydunia** : l'initiation de paiement (obtention
-  d'une URL de paiement) n'est pas implémentée — seule la réception sécurisée du
-  webhook de confirmation l'est.
-- Upload de photos de profil, géolocalisation avancée (recherche par rayon),
-  notifications (SMS/e-mail).
+- **Vérifier l'intégration Paydunia contre la vraie documentation de l'API** :
+  le code (`app/core/paydunia.py`) suit des conventions plausibles mais n'a pas
+  pu être testé contre un vrai compte marchand (voir avertissement plus haut).
+- Upload de photos de profil, géolocalisation avancée (recherche par rayon).
 - **Paiement récurrent des abonnements/boosts** : l'activation Pro/Boost est
-  pour l'instant manuelle côté admin (cf. panneau d'administration) en
-  attendant l'intégration complète de l'initiation de paiement Paydunia.
+  pour l'instant manuelle côté admin (cf. panneau d'administration) — le
+  paiement à l'unité (missions) est câblé, mais pas encore réutilisé pour les
+  abonnements/boosts.
 - **Sécurité en production** : configurer HTTPS (Let's Encrypt) au niveau de
   l'hébergeur, définir des secrets forts et uniques, restreindre `CORS_ALLOWED_ORIGINS`
   au(x) domaine(s) réel(s) du frontend.
