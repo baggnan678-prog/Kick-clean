@@ -46,6 +46,30 @@ async function apiRequest(path, { method = "GET", body, auth = false } = {}) {
   return data;
 }
 
+async function apiUpload(path, formData) {
+  const headers = {};
+  if (Session.accessToken) {
+    headers["Authorization"] = `Bearer ${Session.accessToken}`;
+  }
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    method: "POST",
+    headers,
+    body: formData,
+  });
+
+  let data = null;
+  const text = await response.text();
+  if (text) {
+    try { data = JSON.parse(text); } catch { data = text; }
+  }
+
+  if (!response.ok) {
+    const detail = (data && data.detail) ? data.detail : `Erreur ${response.status}`;
+    throw new Error(typeof detail === "string" ? detail : JSON.stringify(detail));
+  }
+  return data;
+}
+
 function requireAuth(allowedRoles) {
   const user = Session.user;
   if (!user || !Session.accessToken) {

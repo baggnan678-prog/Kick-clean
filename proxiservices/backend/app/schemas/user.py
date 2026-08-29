@@ -2,7 +2,7 @@ import uuid
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
-from app.models.user import UserRole
+from app.models.user import KycStatus, UserRole
 
 
 class UserCreate(BaseModel):
@@ -22,3 +22,8 @@ class UserRead(BaseModel):
     full_name: str
     role: UserRole
     is_verified_provider: bool
+    kyc_status: KycStatus
+
+
+class KycRejectRequest(BaseModel):
+    reason: str = Field(min_length=3, max_length=500)

@@ -41,6 +41,26 @@ proxiservices/
 | Commission 7-10% | `commission_rate` dans la configuration, appliqué à l'acceptation d'un devis |
 | Abonnement Pro / Boost | `app/models/subscription.py`, `app/models/boost.py` (modèles de données prêts ; la logique de paiement associée reste à brancher) |
 | Espaces Client / Prestataire / Admin | Routes `/api/missions`, `/api/services`, `/api/admin` + pages `frontend/espace-client.html`, `frontend/espace-prestataire.html` |
+| Vérification d'identité (KYC) prestataire | `POST /api/users/me/kyc-document` (upload PDF/JPEG/PNG vers un bucket privé Supabase Storage) + `api/routes/admin.py` (liste des dossiers en attente, approbation → badge « Vérifié », rejet motivé) |
+
+## KYC prestataire — Supabase Storage
+
+Un bucket **privé** `proxiservices-kyc` a été créé dans le projet Supabase
+« sey » (aucun accès public ; ni l'anon key ni aucune policy RLS ne l'exposent).
+Le backend y écrit/lit exclusivement via la clé `service_role`, jamais
+transmise au frontend :
+
+- `POST /api/users/me/kyc-document` (prestataire) : upload direct, taille max
+  5 Mo, formats PDF/JPEG/PNG. Passe `kyc_status` à `pending`.
+- `GET /api/admin/kyc/pending` (admin) : liste des prestataires en attente.
+- `GET /api/admin/kyc/{user_id}/document-url` (admin) : URL signée temporaire
+  (2 minutes) pour consulter le document — jamais d'URL publique permanente.
+- `POST /api/admin/kyc/{user_id}/approve` / `.../reject` (admin) : approbation
+  (active `is_verified_provider`, le badge « Vérifié ») ou rejet motivé
+  (journalisé dans `audit_logs`).
+
+Variables d'environnement requises : `SUPABASE_URL` et
+`SUPABASE_SERVICE_ROLE_KEY` (Project Settings → API → service_role secret).
 
 ## Base de données : projet Supabase dédié
 
@@ -106,11 +126,12 @@ pip install -r requirements-dev.txt
 pytest -v
 ```
 
-16 tests couvrent : inscription/connexion, rejet de mauvais mot de passe,
+22 tests couvrent : inscription/connexion, rejet de mauvais mot de passe,
 rafraîchissement de jeton, limitation de débit sur la connexion, le cycle
 complet mission → devis → acceptation (séquestre) → clôture, les contrôles de
-rôle (client/prestataire/admin), et la vérification de signature du webhook
-Paydunia (signature manquante, invalide, référence inconnue).
+rôle (client/prestataire/admin), la vérification de signature du webhook
+Paydunia (signature manquante, invalide, référence inconnue), et le flux KYC
+(upload, contrôle de type de fichier, approbation/rejet admin).
 
 ## Lancer le frontend en local
 
@@ -150,9 +171,9 @@ d'un MVP scaffold :
   webhook de confirmation l'est.
 - **Gestion des litiges** : le statut `disputed` existe dans le modèle de données,
   mais le flux de médiation (côté admin) reste à construire.
-- **Vérification d'identité des prestataires (KYC)**, upload de photos de profil,
-  géolocalisation avancée (recherche par rayon), notifications (SMS/e-mail),
-  interface d'administration complète (modération, gestion des abonnements/boosts).
+- Upload de photos de profil, géolocalisation avancée (recherche par rayon),
+  notifications (SMS/e-mail), interface d'administration complète (modération,
+  gestion des abonnements/boosts).
 - **Sécurité en production** : configurer HTTPS (Let's Encrypt) au niveau de
   l'hébergeur, définir des secrets forts et uniques, restreindre `CORS_ALLOWED_ORIGINS`
   au(x) domaine(s) réel(s) du frontend.

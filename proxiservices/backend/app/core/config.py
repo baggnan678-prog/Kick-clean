@@ -28,6 +28,12 @@ class Settings(BaseSettings):
 
     cors_allowed_origins: list[str] = ["http://localhost:5500", "http://127.0.0.1:5500"]
 
+    # Supabase Storage — utilisé pour l'upload sécurisé des documents KYC des
+    # prestataires. supabase_service_role_key ne doit JAMAIS être exposée au frontend.
+    supabase_url: str = ""
+    supabase_service_role_key: str = ""
+    supabase_kyc_bucket: str = "proxiservices-kyc"
+
 
 @lru_cache
 def get_settings() -> Settings:
