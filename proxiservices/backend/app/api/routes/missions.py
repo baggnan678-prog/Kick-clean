@@ -4,14 +4,14 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.api.deps import require_role
+from app.api.deps import get_current_user, require_role
 from app.core.config import get_settings
 from app.db.session import get_db
 from app.models.audit_log import AuditLog
 from app.models.mission import Mission, MissionStatus, Quote, QuoteStatus
 from app.models.transaction import Transaction, TransactionStatus
 from app.models.user import User, UserRole
-from app.schemas.mission import MissionCreate, MissionRead, QuoteCreate, QuoteRead
+from app.schemas.mission import DisputeCreate, MissionCreate, MissionRead, QuoteCreate, QuoteRead
 
 router = APIRouter(prefix="/api/missions", tags=["missions"])
 settings = get_settings()
@@ -35,6 +35,21 @@ async def list_open_missions(db: AsyncSession = Depends(get_db)) -> list[Mission
     result = await db.scalars(
         select(Mission).where(Mission.status == MissionStatus.OPEN).order_by(Mission.created_at.desc())
     )
+    return list(result)
+
+
+@router.get("/mine", response_model=list[MissionRead])
+async def list_my_missions(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> list[Mission]:
+    """Toutes les missions de l'utilisateur courant, quel que soit leur statut."""
+    condition = (
+        Mission.provider_id == current_user.id
+        if current_user.role == UserRole.PROVIDER
+        else Mission.client_id == current_user.id
+    )
+    result = await db.scalars(select(Mission).where(condition).order_by(Mission.created_at.desc()))
     return list(result)
 
 
@@ -134,6 +149,42 @@ async def complete_mission(
             action="mission_completed",
             target_type="mission",
             target_id=str(mission.id),
+        )
+    )
+
+    await db.commit()
+    await db.refresh(mission)
+    return mission
+
+
+@router.post("/{mission_id}/dispute", response_model=MissionRead)
+async def open_dispute(
+    mission_id: uuid.UUID,
+    payload: DisputeCreate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> Mission:
+    """Le client ou le prestataire de la mission peut ouvrir un litige pendant l'exécution."""
+    mission = await db.get(Mission, mission_id)
+    if mission is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Mission introuvable")
+    if current_user.id not in (mission.client_id, mission.provider_id):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Vous n'êtes pas partie à cette mission")
+    if mission.status not in (MissionStatus.ACCEPTED, MissionStatus.IN_PROGRESS):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Un litige ne peut être ouvert que sur une mission acceptée ou en cours",
+        )
+
+    mission.status = MissionStatus.DISPUTED
+    mission.dispute_reason = payload.reason
+    db.add(
+        AuditLog(
+            actor_id=current_user.id,
+            action="dispute_opened",
+            target_type="mission",
+            target_id=str(mission.id),
+            extra_data={"reason": payload.reason},
         )
     )
 

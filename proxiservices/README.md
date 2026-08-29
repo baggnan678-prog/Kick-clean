@@ -42,6 +42,7 @@ proxiservices/
 | Abonnement Pro / Boost | `app/models/subscription.py`, `app/models/boost.py` (modèles de données prêts ; la logique de paiement associée reste à brancher) |
 | Espaces Client / Prestataire / Admin | Routes `/api/missions`, `/api/services`, `/api/admin` + pages `frontend/espace-client.html`, `frontend/espace-prestataire.html` |
 | Vérification d'identité (KYC) prestataire | `POST /api/users/me/kyc-document` (upload PDF/JPEG/PNG vers un bucket privé Supabase Storage) + `api/routes/admin.py` (liste des dossiers en attente, approbation → badge « Vérifié », rejet motivé) |
+| Gestion des litiges sur les transactions | `POST /api/missions/{id}/dispute` (client ou prestataire) + `POST /api/admin/disputes/{id}/resolve` (libération des fonds ou remboursement, tranché par un admin) |
 
 ## KYC prestataire — Supabase Storage
 
@@ -126,12 +127,14 @@ pip install -r requirements-dev.txt
 pytest -v
 ```
 
-22 tests couvrent : inscription/connexion, rejet de mauvais mot de passe,
+31 tests couvrent : inscription/connexion, rejet de mauvais mot de passe,
 rafraîchissement de jeton, limitation de débit sur la connexion, le cycle
 complet mission → devis → acceptation (séquestre) → clôture, les contrôles de
 rôle (client/prestataire/admin), la vérification de signature du webhook
-Paydunia (signature manquante, invalide, référence inconnue), et le flux KYC
-(upload, contrôle de type de fichier, approbation/rejet admin).
+Paydunia (signature manquante, invalide, référence inconnue), le flux KYC
+(upload, contrôle de type de fichier, approbation/rejet admin), l'ouverture et
+la résolution de litiges (libération des fonds ou remboursement), et la
+visibilité de `/api/missions/mine` quel que soit le statut de la mission.
 
 ## Lancer le frontend en local
 
@@ -169,8 +172,6 @@ d'un MVP scaffold :
 - **Intégration réelle de l'API Paydunia** : l'initiation de paiement (obtention
   d'une URL de paiement) n'est pas implémentée — seule la réception sécurisée du
   webhook de confirmation l'est.
-- **Gestion des litiges** : le statut `disputed` existe dans le modèle de données,
-  mais le flux de médiation (côté admin) reste à construire.
 - Upload de photos de profil, géolocalisation avancée (recherche par rayon),
   notifications (SMS/e-mail), interface d'administration complète (modération,
   gestion des abonnements/boosts).

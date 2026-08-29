@@ -1,4 +1,5 @@
 import uuid
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -27,6 +28,16 @@ class MissionRead(BaseModel):
     budget_fcfa: int
     neighborhood: str
     status: MissionStatus
+    dispute_reason: str | None
+
+
+class DisputeCreate(BaseModel):
+    reason: str = Field(min_length=10, max_length=1000)
+
+
+class DisputeResolve(BaseModel):
+    resolution: Literal["release", "refund"]
+    admin_note: str | None = Field(default=None, max_length=1000)
 
 
 class QuoteCreate(BaseModel):

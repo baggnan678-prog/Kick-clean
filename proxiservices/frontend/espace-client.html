@@ -88,23 +88,66 @@
       }
     }
 
+    const statusLabels = {
+      open: "Ouvert", quoted: "Devis reçus", accepted: "Accepté", in_progress: "En cours",
+      completed: "Terminé", disputed: "Litige en cours", cancelled: "Annulé",
+    };
+
     async function loadMyMissions() {
       const listEl = document.getElementById("ps-mission-list");
       try {
-        const missions = await apiRequest("/api/missions");
-        const mine = missions.filter((m) => m.client_id === currentUser.id);
+        const mine = await apiRequest("/api/missions/mine", { auth: true });
         if (mine.length === 0) {
-          listEl.innerHTML = `<p class="lead">Vous n'avez pas encore de besoin ouvert.</p>`;
+          listEl.innerHTML = `<p class="lead">Vous n'avez pas encore de besoin publié.</p>`;
           return;
         }
         listEl.innerHTML = mine.map((m) => `
-          <div class="mission-card">
-            <span class="badge">${m.status}</span>
+          <div class="mission-card" data-mission-id="${m.id}">
+            <span class="badge">${statusLabels[m.status] || m.status}</span>
             <h4>${m.title}</h4>
             <p class="meta">${m.neighborhood} · Budget : ${m.budget_fcfa} FCFA</p>
             <p>${m.description}</p>
+            ${m.dispute_reason ? `<p class="meta">Motif du litige : ${m.dispute_reason}</p>` : ""}
+            ${(m.status === "accepted" || m.status === "in_progress") ? `
+              <div class="hero-actions" style="justify-content:flex-start; margin-top:0.75rem;">
+                <button class="btn btn-primary ps-complete-btn" data-mission-id="${m.id}" style="padding:0.5rem 1rem;">Marquer terminé</button>
+                <button class="btn btn-outline ps-dispute-btn" data-mission-id="${m.id}" style="padding:0.5rem 1rem; border-color:var(--color-danger); color:var(--color-danger);">Signaler un litige</button>
+              </div>
+            ` : ""}
           </div>
         `).join("");
+
+        document.querySelectorAll(".ps-complete-btn").forEach((btn) => {
+          btn.addEventListener("click", async () => {
+            alertZone.innerHTML = "";
+            try {
+              await apiRequest(`/api/missions/${btn.dataset.missionId}/complete`, { method: "POST", auth: true });
+              showAlert("Mission clôturée, les fonds sont libérés au prestataire.", "success");
+              loadMyMissions();
+            } catch (err) {
+              showAlert(err.message);
+            }
+          });
+        });
+
+        document.querySelectorAll(".ps-dispute-btn").forEach((btn) => {
+          btn.addEventListener("click", async () => {
+            alertZone.innerHTML = "";
+            const reason = prompt("Décrivez le problème rencontré (10 caractères minimum) :");
+            if (!reason) return;
+            try {
+              await apiRequest(`/api/missions/${btn.dataset.missionId}/dispute`, {
+                method: "POST",
+                auth: true,
+                body: { reason },
+              });
+              showAlert("Litige ouvert, un administrateur va l'examiner.", "success");
+              loadMyMissions();
+            } catch (err) {
+              showAlert(err.message);
+            }
+          });
+        });
       } catch (err) {
         showAlert("Impossible de charger vos besoins : " + err.message);
       }

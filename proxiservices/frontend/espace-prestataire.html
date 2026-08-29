@@ -41,6 +41,15 @@
 
   <section class="section section-alt">
     <div class="container">
+      <h2>Mes missions en cours</h2>
+      <p class="lead">Les missions pour lesquelles votre devis a été accepté.</p>
+      <div id="ps-mine-alert-zone"></div>
+      <div id="ps-mine-mission-list" class="mission-list"></div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
       <h2>Besoins ouverts près de chez vous</h2>
       <p class="lead">Consultez les demandes des clients et soumettez votre devis. Une commission de 7 à 10% est prélevée à la validation finale du client ; l'abonnement Pro permet de postuler sans commission.</p>
 
@@ -149,7 +158,63 @@
       }
     }
 
+    const mineAlertZone = document.getElementById("ps-mine-alert-zone");
+    function showMineAlert(message, type = "error") {
+      mineAlertZone.innerHTML = `<div class="alert alert-${type}">${message}</div>`;
+    }
+
+    const statusLabels = {
+      accepted: "Accepté", in_progress: "En cours", completed: "Terminé",
+      disputed: "Litige en cours", cancelled: "Annulé",
+    };
+
+    async function loadMyOngoingMissions() {
+      const listEl = document.getElementById("ps-mine-mission-list");
+      try {
+        const mine = await apiRequest("/api/missions/mine", { auth: true });
+        if (mine.length === 0) {
+          listEl.innerHTML = `<p class="lead">Aucune mission en cours pour le moment.</p>`;
+          return;
+        }
+        listEl.innerHTML = mine.map((m) => `
+          <div class="mission-card">
+            <span class="badge">${statusLabels[m.status] || m.status}</span>
+            <h4>${m.title}</h4>
+            <p class="meta">${m.neighborhood} · Budget : ${m.budget_fcfa} FCFA</p>
+            ${m.dispute_reason ? `<p class="meta">Motif du litige : ${m.dispute_reason}</p>` : ""}
+            ${(m.status === "accepted" || m.status === "in_progress") ? `
+              <div class="hero-actions" style="justify-content:flex-start; margin-top:0.75rem;">
+                <button class="btn btn-outline ps-dispute-btn" data-mission-id="${m.id}" style="padding:0.5rem 1rem; border-color:var(--color-danger); color:var(--color-danger);">Signaler un litige</button>
+              </div>
+            ` : ""}
+          </div>
+        `).join("");
+
+        document.querySelectorAll(".ps-dispute-btn").forEach((btn) => {
+          btn.addEventListener("click", async () => {
+            mineAlertZone.innerHTML = "";
+            const reason = prompt("Décrivez le problème rencontré (10 caractères minimum) :");
+            if (!reason) return;
+            try {
+              await apiRequest(`/api/missions/${btn.dataset.missionId}/dispute`, {
+                method: "POST",
+                auth: true,
+                body: { reason },
+              });
+              showMineAlert("Litige ouvert, un administrateur va l'examiner.", "success");
+              loadMyOngoingMissions();
+            } catch (err) {
+              showMineAlert(err.message);
+            }
+          });
+        });
+      } catch (err) {
+        showMineAlert("Impossible de charger vos missions : " + err.message);
+      }
+    }
+
     loadOpenMissions();
+    loadMyOngoingMissions();
   </script>
 </body>
 </html>

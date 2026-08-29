@@ -11,7 +11,7 @@ from app.models.audit_log import AuditLog
 from app.models.mission import Mission, MissionStatus
 from app.models.transaction import Transaction, TransactionStatus
 from app.models.user import KycStatus, User, UserRole
-from app.schemas.mission import MissionRead
+from app.schemas.mission import DisputeResolve, MissionRead
 from app.schemas.user import KycRejectRequest, UserRead
 
 router = APIRouter(prefix="/api/admin", tags=["admin"], dependencies=[Depends(require_role(UserRole.ADMIN))])
@@ -21,6 +21,44 @@ router = APIRouter(prefix="/api/admin", tags=["admin"], dependencies=[Depends(re
 async def list_disputes(db: AsyncSession = Depends(get_db)) -> list[Mission]:
     result = await db.scalars(select(Mission).where(Mission.status == MissionStatus.DISPUTED))
     return list(result)
+
+
+@router.post("/disputes/{mission_id}/resolve", response_model=MissionRead)
+async def resolve_dispute(
+    mission_id: uuid.UUID,
+    payload: DisputeResolve,
+    current_admin: User = Depends(require_role(UserRole.ADMIN)),
+    db: AsyncSession = Depends(get_db),
+) -> Mission:
+    """Tranche un litige : libère les fonds au prestataire, ou rembourse le client."""
+    mission = await db.get(Mission, mission_id)
+    if mission is None or mission.status != MissionStatus.DISPUTED:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Aucun litige ouvert pour cette mission")
+
+    transaction = await db.scalar(select(Transaction).where(Transaction.mission_id == mission.id))
+
+    if payload.resolution == "release":
+        if transaction is not None and transaction.status == TransactionStatus.HELD_IN_ESCROW:
+            transaction.status = TransactionStatus.RELEASED
+        mission.status = MissionStatus.COMPLETED
+    else:
+        if transaction is not None and transaction.status == TransactionStatus.HELD_IN_ESCROW:
+            transaction.status = TransactionStatus.REFUNDED
+        mission.status = MissionStatus.CANCELLED
+
+    db.add(
+        AuditLog(
+            actor_id=current_admin.id,
+            action="dispute_resolved",
+            target_type="mission",
+            target_id=str(mission.id),
+            extra_data={"resolution": payload.resolution, "admin_note": payload.admin_note},
+        )
+    )
+
+    await db.commit()
+    await db.refresh(mission)
+    return mission
 
 
 @router.get("/stats")
