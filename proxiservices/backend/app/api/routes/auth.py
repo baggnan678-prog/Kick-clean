@@ -21,6 +21,13 @@ async def register(payload: UserCreate, db: AsyncSession = Depends(get_db)) -> U
     if existing is not None:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Un compte existe déjà avec cet e-mail")
 
+    if payload.phone is not None:
+        existing_phone = await db.scalar(select(User).where(User.phone == payload.phone))
+        if existing_phone is not None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT, detail="Un compte existe déjà avec ce numéro de téléphone"
+            )
+
     user = User(
         email=payload.email,
         phone=payload.phone,
