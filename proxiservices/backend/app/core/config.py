@@ -31,7 +31,11 @@ class Settings(BaseSettings):
     pro_subscription_price_fcfa: int = 2000
     boost_price_fcfa: int = 500
 
-    cors_allowed_origins: list[str] = ["http://localhost:5500", "http://127.0.0.1:5500"]
+    cors_allowed_origins: list[str] = [
+        "http://localhost:5500",
+        "http://127.0.0.1:5500",
+        "https://proxiservices-frontend-sey1.vercel.app",
+    ]
 
     # Supabase Storage — utilisé pour l'upload sécurisé des documents KYC des
     # prestataires. supabase_service_role_key ne doit JAMAIS être exposée au frontend.
