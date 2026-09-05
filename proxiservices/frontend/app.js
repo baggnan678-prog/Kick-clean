@@ -1,7 +1,7 @@
 // Configuration et fonctions partagées par toutes les pages ProxiServices.
 // Aucune dépendance externe : fetch natif + localStorage pour la session.
 
-const PRODUCTION_API_BASE_URL = "https://proxiservices-backend-sey1.vercel.app";
+const PRODUCTION_API_BASE_URL = "https://proxiservices-backend.vercel.app";
 const isLocalHost = ["localhost", "127.0.0.1"].includes(window.location.hostname);
 const API_BASE_URL = window.localStorage.getItem("ps_api_base_url")
   || (isLocalHost ? "http://localhost:8000" : PRODUCTION_API_BASE_URL);

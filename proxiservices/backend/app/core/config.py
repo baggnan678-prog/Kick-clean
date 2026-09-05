@@ -34,7 +34,7 @@ class Settings(BaseSettings):
     cors_allowed_origins: list[str] = [
         "http://localhost:5500",
         "http://127.0.0.1:5500",
-        "https://proxiservices-frontend-sey1.vercel.app",
+        "https://proxiservices-frontend.vercel.app",
     ]
 
     # Supabase Storage — utilisé pour l'upload sécurisé des documents KYC des

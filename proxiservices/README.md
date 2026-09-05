@@ -236,9 +236,9 @@ localStorage.setItem("ps_api_base_url", "https://votre-api.example.com");
 - **Stockage KYC** : Supabase Storage, bucket privé, URLs signées à la demande.
 - **Backend** (FastAPI, via `backend/api/index.py` + `backend/vercel.json`,
   runtime `@vercel/python`) : déployé sur Vercel sous le nom de projet
-  `proxiservices-backend` — URL attendue `https://proxiservices-backend-sey1.vercel.app`.
+  `proxiservices-backend` — URL attendue `https://proxiservices-backend.vercel.app`.
 - **Frontend** (statique) : déployé sur Vercel sous le nom de projet
-  `proxiservices-frontend` — URL attendue `https://proxiservices-frontend-sey1.vercel.app`.
+  `proxiservices-frontend` — URL attendue `https://proxiservices-frontend.vercel.app`.
   `frontend/app.js` pointe vers cette URL de backend par défaut dès que la page
   n'est pas servie depuis `localhost`/`127.0.0.1` (surchargeable via
   `localStorage.setItem("ps_api_base_url", "...")`).
@@ -270,7 +270,7 @@ projet `proxiservices-backend` (jamais commitées dans le dépôt) :
 - `PAYDUNIA_API_KEY`, `PAYDUNIA_WEBHOOK_SECRET`, `PAYDUNIA_BASE_URL`,
   `PAYDUNIA_WEBHOOK_URL`, `PAYDUNIA_RETURN_URL` — voir avertissement plus haut
   sur le format d'API Paydunia non vérifié.
-- `CORS_ALLOWED_ORIGINS` — `["https://proxiservices-frontend-sey1.vercel.app"]`
+- `CORS_ALLOWED_ORIGINS` — `["https://proxiservices-frontend.vercel.app"]`
   (ajuster si le domaine réel diffère).
 - `ENVIRONMENT=production`.
 
