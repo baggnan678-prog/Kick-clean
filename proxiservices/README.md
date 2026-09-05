@@ -228,14 +228,53 @@ Render/Fly.io), exécutez dans la console du navigateur :
 localStorage.setItem("ps_api_base_url", "https://votre-api.example.com");
 ```
 
-## Déploiement suggéré (coût minimal, cf. cahier des charges)
+## Déploiement réel (état actuel)
 
-- **Frontend** : Vercel, Netlify ou GitHub Pages (dossier `frontend/`).
-- **Backend** : Render ou Fly.io (offres gratuites), ou un VPS mutualisé d'entrée
-  de gamme si la charge augmente.
-- **Base de données** : Supabase ou Neon (PostgreSQL managé, quota gratuit).
-- **Paiement** : Paydunia — configurer `PAYDUNIA_API_KEY` et
-  `PAYDUNIA_WEBHOOK_SECRET` dans les variables d'environnement du backend déployé.
+- **Base de données** : Supabase, projet `sey` (org. Seydou), schéma dédié et
+  isolé `proxiservices` (aucune table partagée avec l'autre application déjà
+  hébergée sur ce même projet). Migrations Alembic appliquées.
+- **Stockage KYC** : Supabase Storage, bucket privé, URLs signées à la demande.
+- **Backend** (FastAPI, via `backend/api/index.py` + `backend/vercel.json`,
+  runtime `@vercel/python`) : déployé sur Vercel sous le nom de projet
+  `proxiservices-backend` — URL attendue `https://proxiservices-backend-sey1.vercel.app`.
+- **Frontend** (statique) : déployé sur Vercel sous le nom de projet
+  `proxiservices-frontend` — URL attendue `https://proxiservices-frontend-sey1.vercel.app`.
+  `frontend/app.js` pointe vers cette URL de backend par défaut dès que la page
+  n'est pas servie depuis `localhost`/`127.0.0.1` (surchargeable via
+  `localStorage.setItem("ps_api_base_url", "...")`).
+
+**⚠️ Limitation constatée de l'outil de déploiement utilisé (Vercel MCP) :** le
+premier déploiement d'un projet Vercel via cet outil réussit, mais toute
+tentative de redéploiement suivante sur ce **même** projet (preview ou
+production) échoue avec une erreur 403 « You don't have permission ». Ce
+comportement a été observé à l'identique sur les deux projets
+(`proxiservices-backend` et `proxiservices-frontend`) : ce n'est donc pas un
+souci de configuration Vercel mais une limitation de l'outil de déploiement
+par upload de fichiers. **Recommandation** : pour tout redéploiement futur
+(ex. après un correctif), relier chaque projet Vercel au dépôt GitHub via le
+dashboard (*Add New → Project → Import Git Repository*, en pointant le
+« Root Directory » sur `proxiservices/backend` ou `proxiservices/frontend`) —
+Vercel redéploiera alors automatiquement à chaque push sur la branche, sans
+passer par cet outil.
+
+### Variables d'environnement à définir dans Vercel (backend)
+
+À renseigner manuellement dans Project Settings → Environment Variables du
+projet `proxiservices-backend` (jamais commitées dans le dépôt) :
+
+- `DATABASE_URL` — chaîne de connexion Supabase (schéma `proxiservices`),
+  saisie directement par vous dans Vercel.
+- `JWT_SECRET_KEY` — secret aléatoire long (ex. généré via `openssl rand -hex 32`).
+- `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` — Project Settings → API du
+  projet Supabase `sey`.
+- `PAYDUNIA_API_KEY`, `PAYDUNIA_WEBHOOK_SECRET`, `PAYDUNIA_BASE_URL`,
+  `PAYDUNIA_WEBHOOK_URL`, `PAYDUNIA_RETURN_URL` — voir avertissement plus haut
+  sur le format d'API Paydunia non vérifié.
+- `CORS_ALLOWED_ORIGINS` — `["https://proxiservices-frontend-sey1.vercel.app"]`
+  (ajuster si le domaine réel diffère).
+- `ENVIRONMENT=production`.
+
+Voir `backend/.env.example` pour la liste complète et des valeurs d'exemple.
 
 ## Ce qu'il reste à faire avant une mise en production
 
@@ -251,6 +290,7 @@ d'un MVP scaffold :
   pour l'instant manuelle côté admin (cf. panneau d'administration) — le
   paiement à l'unité (missions) est câblé, mais pas encore réutilisé pour les
   abonnements/boosts.
-- **Sécurité en production** : configurer HTTPS (Let's Encrypt) au niveau de
-  l'hébergeur, définir des secrets forts et uniques, restreindre `CORS_ALLOWED_ORIGINS`
-  au(x) domaine(s) réel(s) du frontend.
+- **Confirmer les URLs de déploiement Vercel réelles** une fois le lien Git
+  configuré (voir limitation ci-dessus), et mettre à jour `CORS_ALLOWED_ORIGINS`
+  et `PRODUCTION_API_BASE_URL` (`frontend/app.js`) si elles diffèrent des URLs
+  indiquées.
