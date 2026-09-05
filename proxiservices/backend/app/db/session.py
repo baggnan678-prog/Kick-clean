@@ -16,11 +16,21 @@ settings = get_settings()
 # (ex: $1::user_role) ne sont pas qualifiés par le schéma. Sans ce réglage,
 # Postgres cherche "user_role" via le search_path par défaut ("$user, public")
 # et ne le trouve pas puisque le type vit dans le schema "proxiservices".
+#
+# statement_cache_size=0 : le pooler Supabase (PgBouncer, mode "transaction")
+# peut réassigner une connexion physique différente entre deux requêtes sur la
+# même connexion asyncpg, invalidant les "prepared statements" mis en cache
+# côté client. Sans ce réglage : asyncpg.exceptions.InvalidSQLStatementNameError
+# ("prepared statement ... does not exist"). Voir la documentation asyncpg sur
+# l'utilisation avec PgBouncer.
 engine = create_async_engine(
     settings.database_url,
     echo=settings.environment == "development",
     poolclass=NullPool,
-    connect_args={"server_settings": {"search_path": "proxiservices"}},
+    connect_args={
+        "server_settings": {"search_path": "proxiservices"},
+        "statement_cache_size": 0,
+    },
 )
 AsyncSessionLocal = async_sessionmaker(engine, expire_on_commit=False)
 
